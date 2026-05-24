@@ -1,0 +1,477 @@
+/* =============================================================
+   Markdown Mate — style.css
+   data-app="markdown-mate" | Teal accent #2A7F7F
+   Part of the Build with Baker app family.
+   Token migration note: --mm- prefix will map to --bwb- tokens
+   when the shared Build with Baker design system is formalised.
+   ============================================================= */
+
+/* --- Primitive tokens --- */
+:root {
+  --mm-teal-300: #5DBDBD;
+  --mm-teal-500: #2A7F7F;
+  --mm-teal-700: #1A5F5F;
+  --mm-neutral-100: #EFF2F7;
+  --mm-neutral-200: #DDE3ED;
+  --mm-neutral-400: #98A8BC;
+  --mm-neutral-600: #526070;
+  --mm-neutral-800: #2A3540;
+  --mm-white: #FFFFFF;
+}
+
+/* --- Semantic tokens (light mode) --- */
+:root {
+  --mm-color-brand:          var(--mm-teal-500);
+  --mm-color-brand-dark:     var(--mm-teal-700);
+  --mm-color-brand-faint:    rgba(42, 127, 127, 0.1);
+  --mm-color-text:           var(--mm-neutral-800);
+  --mm-color-text-secondary: var(--mm-neutral-600);
+  --mm-color-text-muted:     var(--mm-neutral-400);
+  --mm-color-bg-page:        var(--mm-neutral-100);
+  --mm-color-bg-card:        var(--mm-white);
+  --mm-color-bg-toolbar:     var(--mm-white);
+  --mm-color-border:         var(--mm-neutral-200);
+  --mm-color-border-subtle:  rgba(0, 0, 0, 0.06);
+
+  --mm-font:      'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mm-font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+
+  --mm-radius:    8px;
+  --mm-radius-lg: 12px;
+  --mm-toolbar-h: 52px;
+  --mm-content-max: 720px;
+  --mm-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* --- Dark mode token overrides --- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mm-color-text:           #E8EDF2;
+    --mm-color-text-secondary: #8A9AAA;
+    --mm-color-text-muted:     #5A6A7A;
+    --mm-color-bg-page:        #151A22;
+    --mm-color-bg-card:        #1E2630;
+    --mm-color-bg-toolbar:     #1A2028;
+    --mm-color-border:         rgba(255, 255, 255, 0.08);
+    --mm-color-border-subtle:  rgba(255, 255, 255, 0.04);
+    --mm-color-brand-faint:    rgba(42, 127, 127, 0.15);
+    --mm-shadow-sm:            0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Reset --- */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--mm-font);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--mm-color-text);
+  background: var(--mm-color-bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Landing state --- */
+.landing {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.landing__card {
+  background: var(--mm-color-bg-card);
+  border: 0.5px solid var(--mm-color-border);
+  border-radius: var(--mm-radius-lg);
+  box-shadow: var(--mm-shadow-sm);
+  padding: 3rem 2.5rem;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+}
+
+.landing__icon {
+  display: block;
+  margin: 0 auto 1.25rem;
+  border-radius: 12px;
+}
+
+.landing__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--mm-color-text);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.landing__desc {
+  font-size: 0.9375rem;
+  color: var(--mm-color-text-secondary);
+  margin: 0 0 1.75rem;
+  line-height: 1.5;
+}
+
+.landing__note {
+  font-size: 0.8125rem;
+  color: var(--mm-color-text-muted);
+  margin: 1rem 0 0;
+}
+
+.landing__unsupported {
+  font-size: 0.875rem;
+  color: #b94040;
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.9rem;
+  background: rgba(185, 64, 64, 0.08);
+  border-radius: var(--mm-radius);
+}
+
+/* --- Reader layout --- */
+.reader {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* --- Toolbar --- */
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--mm-toolbar-h);
+  background: var(--mm-color-bg-toolbar);
+  border-bottom: 0.5px solid var(--mm-color-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 1.25rem;
+}
+
+.toolbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.toolbar__logo {
+  border-radius: 6px;
+  display: block;
+}
+
+.toolbar__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--mm-color-text);
+  letter-spacing: -0.01em;
+}
+
+.toolbar__file {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--mm-color-brand-faint);
+  color: var(--mm-color-brand);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 4px 9px;
+  border-radius: 5px;
+  min-width: 0;
+}
+
+.toolbar__filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.toolbar__spacer {
+  flex: 1;
+}
+
+/* --- Content area --- */
+.content {
+  flex: 1;
+  padding: 2rem 1rem 3rem;
+}
+
+.doc {
+  max-width: var(--mm-content-max);
+  margin: 0 auto;
+  background: var(--mm-color-bg-card);
+  border: 0.5px solid var(--mm-color-border);
+  border-radius: var(--mm-radius-lg);
+  padding: 2.5rem 3rem;
+  box-shadow: var(--mm-shadow-sm);
+}
+
+@media (max-width: 640px) {
+  .doc {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+/* --- Footer --- */
+.footer {
+  background: var(--mm-color-bg-toolbar);
+  border-top: 0.5px solid var(--mm-color-border);
+  padding: 0.75rem 1.25rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--mm-color-text-muted);
+}
+
+.footer a {
+  color: var(--mm-color-text-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--mm-color-border);
+  transition: color 0.15s;
+}
+
+.footer a:hover {
+  color: var(--mm-color-brand);
+  text-decoration-color: var(--mm-color-brand);
+}
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--mm-radius);
+  font-family: var(--mm-font);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn--primary {
+  background: var(--mm-color-brand);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  background: var(--mm-color-brand-dark);
+}
+
+.btn--primary:active {
+  transform: scale(0.97);
+}
+
+.btn--sm {
+  font-size: 0.8125rem;
+  padding: 6px 12px;
+}
+
+.btn--lg {
+  font-size: 1rem;
+  padding: 12px 24px;
+  border-radius: var(--mm-radius);
+}
+
+/* --- Inline code (outside .doc) --- */
+.inline-code {
+  font-family: var(--mm-font-mono);
+  font-size: 0.875em;
+  background: var(--mm-color-brand-faint);
+  color: var(--mm-color-brand);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* --- Toast --- */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--mm-neutral-800);
+  color: #fff;
+  font-size: 0.875rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: var(--mm-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 999;
+  pointer-events: none;
+}
+
+/* ================================================================
+   Markdown rendered content styles (.doc)
+   All elements that marked.js can produce.
+   ================================================================ */
+
+.doc h1,
+.doc h2,
+.doc h3,
+.doc h4,
+.doc h5,
+.doc h6 {
+  color: var(--mm-color-text);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin-top: 2rem;
+  margin-bottom: 0.6rem;
+}
+
+.doc h1 { font-size: 1.875rem; margin-top: 0; border-bottom: 1.5px solid var(--mm-color-border); padding-bottom: 0.5rem; }
+.doc h2 { font-size: 1.375rem; border-bottom: 0.5px solid var(--mm-color-border); padding-bottom: 0.35rem; }
+.doc h3 { font-size: 1.125rem; }
+.doc h4 { font-size: 1rem; }
+.doc h5 { font-size: 0.9375rem; }
+.doc h6 { font-size: 0.875rem; color: var(--mm-color-text-secondary); }
+
+.doc p {
+  margin: 0 0 1rem;
+  color: var(--mm-color-text);
+  line-height: 1.75;
+}
+
+.doc a {
+  color: var(--mm-color-brand);
+  text-decoration: underline;
+  text-decoration-color: var(--mm-color-brand-faint);
+  transition: text-decoration-color 0.15s;
+}
+
+.doc a:hover {
+  text-decoration-color: var(--mm-color-brand);
+}
+
+.doc strong { font-weight: 600; }
+.doc em { font-style: italic; }
+.doc del { text-decoration: line-through; color: var(--mm-color-text-secondary); }
+
+/* Inline code */
+.doc code {
+  font-family: var(--mm-font-mono);
+  font-size: 0.875em;
+  background: var(--mm-color-brand-faint);
+  color: var(--mm-color-brand);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* Code blocks */
+.doc pre {
+  background: var(--mm-color-bg-page);
+  border: 0.5px solid var(--mm-color-border);
+  border-left: 3px solid var(--mm-color-brand);
+  border-radius: var(--mm-radius);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 0 0 1.25rem;
+}
+
+.doc pre code {
+  font-family: var(--mm-font-mono);
+  font-size: 0.875rem;
+  background: none;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  line-height: 1.65;
+}
+
+/* Blockquotes */
+.doc blockquote {
+  border-left: 3px solid var(--mm-teal-300);
+  margin: 0 0 1.25rem;
+  padding: 0.5rem 0 0.5rem 1.25rem;
+  color: var(--mm-color-text-secondary);
+  font-style: italic;
+}
+
+.doc blockquote p { margin: 0; }
+
+/* Lists */
+.doc ul,
+.doc ol {
+  margin: 0 0 1.25rem;
+  padding-left: 1.75rem;
+}
+
+.doc li {
+  margin-bottom: 0.3rem;
+  line-height: 1.7;
+}
+
+.doc li > ul,
+.doc li > ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+}
+
+/* Task list checkboxes (GFM) */
+.doc input[type="checkbox"] {
+  margin-right: 0.4rem;
+  accent-color: var(--mm-color-brand);
+}
+
+/* Tables */
+.doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.5rem;
+  font-size: 0.9375rem;
+  overflow-x: auto;
+  display: block;
+}
+
+.doc th,
+.doc td {
+  border: 0.5px solid var(--mm-color-border);
+  padding: 0.5rem 0.875rem;
+  text-align: left;
+}
+
+.doc th {
+  background: var(--mm-color-bg-page);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--mm-color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.doc tr:nth-child(even) td {
+  background: var(--mm-color-bg-page);
+}
+
+/* Horizontal rule */
+.doc hr {
+  border: none;
+  border-top: 1px solid var(--mm-color-border);
+  margin: 2rem 0;
+}
+
+/* Images */
+.doc img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--mm-radius);
+  display: block;
+  margin: 0.5rem 0;
+}
+
+/* hljs overrides for dark mode — the stylesheet switches via media query
+   but some code block background/border tweaks are needed regardless */
+.doc pre .hljs {
+  background: transparent;
+  padding: 0;
+}
