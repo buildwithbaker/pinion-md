@@ -88,6 +88,6 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-Built by Adam Baker. A Build with Baker product.
+A [Build with Baker](https://github.com/buildwithbaker) product.
 
-If Pinion.md is useful to you, [tip the maker on Ko-fi](https://ko-fi.com/abaker421).
+If Pinion.md is useful to you, [support on Ko-fi](https://ko-fi.com/abaker421).
