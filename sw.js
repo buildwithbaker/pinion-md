@@ -1,15 +1,12 @@
 /**
- * Markdown Mate — sw.js
+ * Markdown Mate - sw.js
  * Cache-first service worker for local app shell assets.
  *
- * CDN dependencies (highlight.js, marked, DOMPurify) are intentionally
- * excluded from this cache — they are served by the browser's HTTP cache
- * with long max-age headers. To make the app fully offline-capable,
- * vendor those files locally (see comment in index.html) and add them
- * to ASSETS below.
+ * All dependencies are vendored locally for true offline support.
+ * Bump CACHE_NAME (v1 -> v2 etc) any time ASSETS change so old caches drop.
  */
 
-const CACHE_NAME = 'markdown-mate-v1';
+const CACHE_NAME = 'markdown-mate-v2';
 
 const ASSETS = [
   './',
@@ -18,6 +15,11 @@ const ASSETS = [
   './app.js',
   './manifest.json',
   './icon.svg',
+  './vendor/marked.min.js',
+  './vendor/highlight.min.js',
+  './vendor/purify.min.js',
+  './vendor/github.min.css',
+  './vendor/github-dark.min.css',
 ];
 
 // Install: cache all local assets

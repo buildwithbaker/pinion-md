@@ -1,11 +1,11 @@
 /**
- * Markdown Mate — app.js
+ * Markdown Mate - app.js
  * Scope 1: open a .md file, render it, read it.
  *
- * Dependencies (loaded via <script> tags in index.html):
- *   - marked       (window.marked)
- *   - DOMPurify    (window.DOMPurify)
- *   - highlight.js (window.hljs)
+ * Dependencies (vendored, loaded via <script> tags in index.html):
+ *   - marked       (window.marked)       - vendor/marked.min.js
+ *   - DOMPurify    (window.DOMPurify)    - vendor/purify.min.js
+ *   - highlight.js (window.hljs)         - vendor/highlight.min.js
  *
  * Scope 2 note: state.fileHandle is stored deliberately so reload
  * and write-back can be added without restructuring this file.

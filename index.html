@@ -4,20 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Markdown Mate</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css" media="(prefers-color-scheme: light)">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="vendor/github.min.css" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="vendor/github-dark.min.css" media="(prefers-color-scheme: dark)">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <meta name="theme-color" content="#2A7F7F">
-  <meta name="description" content="Read markdown files beautifully. Open any .md file and see it rendered instantly — no editor, no accounts, no clutter.">
+  <meta name="description" content="Read markdown files beautifully. Open any .md file and see it rendered instantly - no editor, no accounts, no clutter.">
   <meta property="og:title" content="Markdown Mate">
   <meta property="og:description" content="A lightweight .md file reader. Open a markdown file and see a clean rendered preview instantly.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="og-card.png">
-  <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 
@@ -65,9 +63,7 @@
     </main>
 
     <footer class="footer">
-      Built by <a href="https://ko-fi.com/abaker421" target="_blank" rel="noopener noreferrer">Adam Baker</a>
-      &middot;
-      <a href="#" target="_blank" rel="noopener noreferrer">Build with Baker</a>
+      Built by Adam Baker &middot; Build with Baker
     </footer>
 
   </div>
@@ -78,17 +74,18 @@
   </div>
 
   <!--
-    Dependencies loaded from CDN for development.
-    For production (offline PWA), vendor these locally:
-      vendor/highlight.min.js     — https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js
-      vendor/marked.min.js        — https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js
-      vendor/purify.min.js        — https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js
-    Then update sw.js ASSETS list and swap these script src values to local paths.
+    Dependencies vendored locally for offline PWA support.
+    Source URLs (re-fetch if updating versions):
+      vendor/highlight.min.js     - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js
+      vendor/marked.min.js        - https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js
+      vendor/purify.min.js        - https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js
+      vendor/github.min.css       - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css
+      vendor/github-dark.min.css  - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css
   -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-  <script src="app.js" type="module"></script>
+  <script src="vendor/highlight.min.js"></script>
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/purify.min.js"></script>
+  <script src="app.js" defer></script>
 
 </body>
 </html>
