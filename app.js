@@ -53,7 +53,18 @@
     footStatus:     $('js-foot-status'),
     toast:          $('js-toast'),
     toastMsg:       $('js-toast-msg'),
+    install:        $('js-install'),
   };
+
+  // PWA install prompt - captured from beforeinstallprompt and replayed when
+  // the user clicks the in-app Install button. Chromium fires this event on
+  // engagement once the manifest + service worker meet install criteria. iOS
+  // Safari and Firefox do NOT fire beforeinstallprompt, so the button stays
+  // hidden on those browsers (correct: tapping it would do nothing). iOS
+  // users install via the Share menu's "Add to Home Screen" affordance,
+  // which we deliberately do not surface in this v1.1 patch to keep scope
+  // minimal.
+  let deferredInstallPrompt = null;
 
   // ---------------------------------------------------------------------
   // Markdown engine setup
@@ -409,6 +420,38 @@
     els.source.addEventListener('input', onSourceInput);
 
     document.addEventListener('keydown', onKeyDown);
+
+    // PWA install affordance. The button starts hidden; it reveals only after
+    // beforeinstallprompt fires, which Chromium does once install criteria
+    // are met. On browsers that never fire the event (iOS Safari, Firefox)
+    // the button stays hidden, which is the correct degraded behavior.
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      if (els.install) els.install.hidden = false;
+    });
+
+    if (els.install) {
+      els.install.addEventListener('click', async () => {
+        if (!deferredInstallPrompt) return;
+        els.install.hidden = true;
+        deferredInstallPrompt.prompt();
+        try {
+          await deferredInstallPrompt.userChoice;
+        } catch (err) {
+          console.warn('Install prompt userChoice failed:', err);
+        }
+        // Spec: the prompt can be used at most once. Drop the reference;
+        // Chromium will fire beforeinstallprompt again on a future visit if
+        // the user dismissed without installing.
+        deferredInstallPrompt = null;
+      });
+    }
+
+    window.addEventListener('appinstalled', () => {
+      if (els.install) els.install.hidden = true;
+      deferredInstallPrompt = null;
+    });
 
     setView('landing');
 

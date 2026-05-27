@@ -199,6 +199,22 @@ html, body {
 }
 .btn-lg .icon { width: 16px; height: 16px; }
 
+/* Secondary action button: indigo outline, no fill, becomes accent-soft on hover.
+ * Used by the in-app PWA Install affordance so it reads below the primary
+ * "Open file" CTA in the header. */
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  /* Compensate for the 1px border so the height matches .btn exactly. */
+  padding: 6px 13px;
+}
+.btn-ghost:hover {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 /* Body: view-mode driven layout */
 
 .body {
