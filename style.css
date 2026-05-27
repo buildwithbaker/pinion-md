@@ -700,49 +700,10 @@ html, body {
   color: var(--bwb-text-muted);
   font-size: 12px;
 }
-.footer a.footer-link {
-  color: var(--bwb-text-secondary);
-  text-decoration: none;
-  border-bottom: 1px dotted var(--bwb-border-strong);
-}
-.footer a.footer-link:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-/* Ko-fi support button.
- * Ko-fi red #FF5E5B is vendor-required per the BwB indigo-only decision brief
- * (project-blueprints/build-with-baker/future-enhancements/
- *  indigo-only-decision-2026-05-23.md): "Ko-fi red stays where Ko-fi requires
- * it (the tip button). It's a vendor-required color, not a BwB brand choice." */
-.kofi-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #FF5E5B;
-  color: #FFFFFF;
-  padding: 5px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-  border: 0;
-  transition: background 80ms ease, transform 80ms ease;
-}
-.kofi-btn:hover {
-  background: #E14E4B;
-  color: #FFFFFF;
-  border: 0;
-  transform: translateY(-1px);
-}
-.kofi-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.kofi-icon {
-  width: 14px;
-  height: 14px;
-}
+/* Footer is file-stats only per the 2026-05-26 STA-first positioning decision -
+ * Pinion.md ships without in-app maker attribution or Ko-fi tip jar so it
+ * reads as a neutral staff tool inside the STA Training Hub. README keeps
+ * the BwB attribution since that surface is developer-only. */
 .footer .left,
 .footer .right {
   display: inline-flex;
