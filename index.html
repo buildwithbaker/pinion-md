@@ -1,87 +1,155 @@
 <!DOCTYPE html>
-<html lang="en" data-app="markdown-mate">
+<html lang="en" data-app="pinion-md">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>Markdown Mate</title>
+    content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Pinion.md</title>
+  <meta name="description" content="A clean, fast markdown reader and writer for the web. Open a .md file, read it rendered, or flip to edit mode. No accounts, no clutter, no upload.">
+  <meta name="theme-color" content="#2B4A8B">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="vendor/github.min.css" media="(prefers-color-scheme: light)">
-  <link rel="stylesheet" href="vendor/github-dark.min.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="vendor/highlight-theme.css">
+
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="#2A7F7F">
-  <meta name="description" content="Read markdown files beautifully. Open any .md file and see it rendered instantly - no editor, no accounts, no clutter.">
-  <meta property="og:title" content="Markdown Mate">
-  <meta property="og:description" content="A lightweight .md file reader. Open a markdown file and see a clean rendered preview instantly.">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <meta property="og:title" content="Pinion.md">
+  <meta property="og:description" content="A clean, fast markdown reader and writer for the web. No accounts, no clutter, no upload.">
   <meta property="og:type" content="website">
 </head>
 <body>
 
-  <!-- Landing: shown when no file is open -->
-  <div class="landing" id="js-landing">
-    <div class="landing__card">
-      <img src="icon.svg" width="56" height="56" alt="" class="landing__icon" aria-hidden="true">
-      <h1 class="landing__title">Markdown Mate</h1>
-      <p class="landing__desc">Open a <code class="inline-code">.md</code> file and read it beautifully.</p>
-      <button class="btn btn--primary btn--lg" id="js-open-landing">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        Open file
-      </button>
-      <p class="landing__note">Works in Chrome and Edge &middot; Files stay on your computer</p>
-      <p class="landing__unsupported" id="js-unsupported" hidden>
-        Your browser doesn't support the File System Access API. Try Chrome or Edge.
-      </p>
-    </div>
-  </div>
+  <div class="app">
 
-  <!-- Reader: shown when a file is open -->
-  <div class="reader" id="js-reader" hidden>
+    <header class="header" role="banner">
+      <a class="brand" href="./" aria-label="Pinion.md home">
+        <svg class="feather" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/>
+          <line x1="16" y1="8" x2="2" y2="22"/>
+          <line x1="17.5" y1="15" x2="9" y2="15"/>
+        </svg>
+        <span class="wordmark">
+          <span class="name">Pinion</span><span class="ext">.md</span>
+        </span>
+      </a>
 
-    <header class="toolbar">
-      <div class="toolbar__brand">
-        <img src="icon.svg" width="26" height="26" alt="Markdown Mate" class="toolbar__logo">
-        <span class="toolbar__name">Markdown Mate</span>
+      <span class="filename-badge" id="js-file-badge" hidden>
+        <span class="dot" aria-hidden="true"></span>
+        <span id="js-filename"></span>
+      </span>
+
+      <span class="header-spacer"></span>
+
+      <div class="seg-control" role="tablist" aria-label="View mode" id="js-seg" hidden>
+        <button type="button" role="tab" data-view="preview" aria-selected="false">Preview</button>
+        <button type="button" role="tab" data-view="edit" aria-selected="false">Edit</button>
+        <button type="button" role="tab" data-view="split" class="active" aria-selected="true">Split</button>
       </div>
 
-      <div class="toolbar__file" id="js-file-badge" hidden>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-        <span id="js-filename" class="toolbar__filename"></span>
-      </div>
-
-      <div class="toolbar__spacer"></div>
-
-      <button class="btn btn--primary btn--sm" id="js-open-toolbar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <button class="btn" type="button" id="js-open">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
         Open file
       </button>
     </header>
 
-    <main class="content">
-      <article class="doc" id="js-doc" aria-label="Rendered document"></article>
+    <main class="body" id="js-body" data-view="landing">
+
+      <section class="landing" id="js-landing" aria-label="Welcome">
+        <div class="landing-card">
+          <svg class="landing-feather" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/>
+            <line x1="16" y1="8" x2="2" y2="22"/>
+            <line x1="17.5" y1="15" x2="9" y2="15"/>
+          </svg>
+          <h1 class="landing-title">Pinion<span class="landing-ext">.md</span></h1>
+          <p class="landing-desc">A clean, fast markdown reader and writer for the web. Open a <code>.md</code> file from your computer to start.</p>
+          <button class="btn btn-lg" type="button" id="js-open-landing">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Open file
+          </button>
+          <p class="landing-note">Files stay on your computer. Nothing is uploaded.</p>
+          <p class="landing-unsupported" id="js-unsupported" hidden>
+            Your browser does not support the File System Access API. Read-only mode is available in Chrome, Edge, or Opera.
+          </p>
+        </div>
+      </section>
+
+      <section class="pane pane-source" id="js-pane-source" aria-label="Markdown source" hidden>
+        <div class="pane-header">
+          <span class="ph-left">
+            <svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            Source
+          </span>
+          <span class="ph-right">
+            <span class="meta"><span class="val" id="js-line-count">0</span> lines</span>
+            <span class="ph-divider" aria-hidden="true"></span>
+            <span class="meta"><span class="val" id="js-size">0</span> KB</span>
+            <span class="ph-pill" title="Markdown">md</span>
+          </span>
+        </div>
+        <div class="pane-scroll">
+          <textarea class="source-editor" id="js-source" aria-label="Markdown source editor" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+        </div>
+      </section>
+
+      <section class="pane pane-preview" id="js-pane-preview" aria-label="Rendered preview" hidden>
+        <div class="pane-header">
+          <span class="ph-left">
+            <svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Preview
+          </span>
+          <span class="ph-right">
+            <span class="meta"><span class="val" id="js-word-count">0</span> words</span>
+            <span class="ph-divider" aria-hidden="true"></span>
+            <span class="meta"><span class="val" id="js-read-time">~0</span> min read</span>
+            <span class="ph-dot" id="js-live-dot" title="Live preview active" aria-hidden="true"></span>
+          </span>
+        </div>
+        <div class="pane-scroll">
+          <article class="preview-content" id="js-preview" aria-label="Rendered document"></article>
+        </div>
+      </section>
+
     </main>
 
-    <footer class="footer">
-      Built by Adam Baker &middot; Build with Baker
+    <footer class="footer" role="contentinfo">
+      <span class="left" id="js-footer-stats" hidden>
+        <span class="stat"><span class="label">Words</span><span class="val" id="js-foot-words">0</span></span>
+        <span class="stat"><span class="label">Read time</span><span class="val" id="js-foot-read">~0 min</span></span>
+        <span class="stat"><span class="label" id="js-foot-status-label">Status</span><span class="val" id="js-foot-status">ready</span></span>
+      </span>
+      <span class="left landing-foot" id="js-footer-landing">
+        <span class="muted">Open a file to begin</span>
+      </span>
+      <span class="right">
+        Built by <a href="https://github.com/abaker421" target="_blank" rel="noopener">Adam Baker</a> &middot; <a href="https://github.com/buildwithbaker" target="_blank" rel="noopener">Build with Baker</a> &middot; <a href="https://ko-fi.com/abaker421" target="_blank" rel="noopener">Ko-fi</a>
+      </span>
     </footer>
 
   </div>
 
-  <!-- Error toast -->
   <div class="toast" id="js-toast" role="alert" aria-live="assertive" hidden>
     <span id="js-toast-msg"></span>
   </div>
 
-  <!--
-    Dependencies vendored locally for offline PWA support.
-    Source URLs (re-fetch if updating versions):
-      vendor/highlight.min.js     - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js
-      vendor/marked.min.js        - https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js
-      vendor/purify.min.js        - https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js
-      vendor/github.min.css       - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css
-      vendor/github-dark.min.css  - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css
-  -->
   <script src="vendor/highlight.min.js"></script>
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/purify.min.js"></script>

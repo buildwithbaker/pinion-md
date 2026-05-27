@@ -1,0 +1,133 @@
+/* Pinion.md syntax theme for highlight.js v11.x
+ *
+ * Tuned to the Build with Baker indigo-only palette and the muted reader
+ * surface ramp. No bright neon tokens; everything sits within the brand
+ * color family plus the functional status tokens (success/warning/danger).
+ *
+ * Token color choices align with the mockup's .tok-* classes:
+ *   key  -> --accent (indigo, weight 600)
+ *   str  -> --bwb-status-success (muted green)
+ *   fn   -> --bwb-text-primary (weight 600)
+ *   com  -> --bwb-text-muted (italic)
+ *
+ * The theme inherits CSS variables from :root in style.css. Load this file
+ * AFTER style.css.
+ */
+
+.hljs {
+  display: block;
+  overflow-x: auto;
+  background: transparent;
+  color: var(--bwb-text-primary);
+  font-family: var(--font-mono);
+}
+
+/* Comments and meta */
+.hljs-comment,
+.hljs-quote {
+  color: var(--bwb-text-muted);
+  font-style: italic;
+}
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: var(--bwb-text-muted);
+}
+
+/* Keywords, control flow, language built-ins */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag {
+  color: var(--accent);
+  font-weight: 600;
+}
+.hljs-built_in,
+.hljs-type {
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+
+/* Strings */
+.hljs-string,
+.hljs-regexp,
+.hljs-template-tag,
+.hljs-template-variable {
+  color: var(--bwb-status-success);
+}
+
+/* Numbers, symbols, params */
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: var(--accent);
+}
+
+/* Function and class names */
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-name,
+.hljs-section {
+  color: var(--bwb-text-primary);
+  font-weight: 600;
+}
+.hljs-class .hljs-title,
+.hljs-function .hljs-title {
+  color: var(--bwb-text-primary);
+  font-weight: 600;
+}
+
+/* Variables and parameters */
+.hljs-variable,
+.hljs-params,
+.hljs-property {
+  color: var(--bwb-text-primary);
+}
+
+/* HTML / XML / JSX */
+.hljs-tag,
+.hljs-tag .hljs-name {
+  color: var(--accent);
+}
+.hljs-tag .hljs-attr,
+.hljs-attribute,
+.hljs-attr {
+  color: var(--accent-hover);
+}
+.hljs-tag .hljs-string {
+  color: var(--bwb-status-success);
+}
+
+/* CSS specific */
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-selector-pseudo,
+.hljs-selector-attr {
+  color: var(--accent-hover);
+}
+
+/* Markup emphasis */
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
+
+/* Diff */
+.hljs-addition {
+  color: var(--bwb-status-success);
+  background-color: rgba(46, 125, 91, 0.08);
+}
+.hljs-deletion {
+  color: var(--bwb-status-danger);
+  background-color: rgba(184, 47, 47, 0.08);
+}
+
+/* Other less common tokens */
+.hljs-formula,
+.hljs-code,
+.hljs-operator,
+.hljs-punctuation {
+  color: var(--bwb-text-secondary);
+}
+.hljs-subst {
+  color: var(--bwb-text-primary);
+}

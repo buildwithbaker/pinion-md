@@ -1,12 +1,11 @@
-/**
- * Markdown Mate - sw.js
- * Cache-first service worker for local app shell assets.
+/* Pinion.md - sw.js
  *
- * All dependencies are vendored locally for true offline support.
- * Bump CACHE_NAME (v1 -> v2 etc) any time ASSETS change so old caches drop.
+ * Cache-first service worker for local app shell assets.
+ * All third-party dependencies are vendored locally for true offline support.
+ * Bump CACHE_NAME (v1 -> v2 etc.) any time ASSETS change so old caches drop.
  */
 
-const CACHE_NAME = 'markdown-mate-v2';
+const CACHE_NAME = 'pinion-md-v1';
 
 const ASSETS = [
   './',
@@ -15,11 +14,13 @@ const ASSETS = [
   './app.js',
   './manifest.json',
   './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable-512.png',
   './vendor/marked.min.js',
   './vendor/highlight.min.js',
   './vendor/purify.min.js',
-  './vendor/github.min.css',
-  './vendor/github-dark.min.css',
+  './vendor/highlight-theme.css',
 ];
 
 // Install: cache all local assets
@@ -46,24 +47,25 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: cache-first for local assets, network-only for everything else
+// Fetch: cache-first for same-origin assets, network fallback then cache for new ones.
+// Cross-origin (Google Fonts) is left to the browser's normal cache.
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-  // Only intercept same-origin requests
+  const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(req).then((cached) => {
       if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        // Cache successful same-origin responses
+      return fetch(req).then((response) => {
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
         }
         return response;
-      });
+      }).catch(() => caches.match('./index.html'));
     })
   );
 });

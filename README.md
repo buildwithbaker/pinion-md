@@ -1,53 +1,27 @@
-# Markdown Mate
+# Pinion.md
 
-A lightweight Progressive Web App for reading `.md` files. Open a markdown file from your computer and see it rendered instantly - no editor, no accounts, no clutter.
+A clean, fast markdown reader and writer for the web. Point it at a `.md` file on your computer, read it rendered, or flip to edit mode to write. Lives in your browser as an installable PWA. No accounts, no clutter, no upload.
 
-**Live:** https://buildwithbaker.github.io/markdown-mate/
+**Live:** https://buildwithbaker.github.io/pinion-md/
 
 ## What it does
 
-- Point it at any `.md` file on your computer
-- Renders the markdown in a clean, readable layout
-- Files stay on your machine - nothing is uploaded anywhere
-- Installs as a desktop PWA in Chrome/Edge
-- Works fully offline after first load
+- Open any local `.md` file via the File System Access API
+- Three view modes: Preview, Edit, Split (with live-updating preview)
+- Save changes back to the original file
+- Reload from disk to pick up external edits
+- Full CommonMark + GFM: headings, lists, tables, task lists, fenced code blocks, blockquotes, inline code, images, links
+- Syntax highlighting for fenced code blocks via highlight.js
+- Installable PWA. Works offline after first load.
 
-## How to use
+## Keyboard shortcuts
 
-1. Visit the [live site](https://buildwithbaker.github.io/markdown-mate/) or open the installed PWA
-2. Click **Open file**
-3. Pick any `.md` or `.markdown` file
-4. Read
-
-To open a different file, click **Open file** again from the toolbar.
-
-## Install as a desktop app (Chrome / Edge)
-
-1. Visit the live site
-2. Look for the install icon in the address bar (or `chrome://apps`)
-3. Click install - it lives in your Start menu / Applications folder
-4. Works offline from then on
-
-## Browser support
-
-- ✅ Chrome (desktop and Android)
-- ✅ Edge
-- ❌ Firefox - no File System Access API support
-- ❌ Safari - no File System Access API support
-
-Browsers without the File System Access API show a friendly notice on load.
-
-## What it renders
-
-- Headings, paragraphs, bold, italic, strikethrough
-- Inline code and fenced code blocks with syntax highlighting (highlight.js)
-- Blockquotes
-- Ordered, unordered, and task lists
-- Tables (GitHub Flavored Markdown)
-- Links (external links open in a new tab)
-- Images (only inline / data URLs render - no external image fetches)
-
-Markdown is parsed with [marked](https://github.com/markedjs/marked) and sanitized with [DOMPurify](https://github.com/cure53/DOMPurify) before injection.
+| Action | Shortcut |
+|---|---|
+| Open file | `Ctrl + O` |
+| Toggle preview / edit | `Ctrl + E` |
+| Save changes | `Ctrl + S` |
+| Reload from disk | `Ctrl + R` |
 
 ## Tech stack
 
@@ -63,47 +37,50 @@ Markdown is parsed with [marked](https://github.com/markedjs/marked) and sanitiz
 
 All third-party libraries are vendored locally in `vendor/` for offline support and supply-chain stability.
 
+## Browser support
+
+- File picker plus save-in-place: Chrome, Edge, Opera (any Chromium-based browser, desktop and Android)
+- Read-only fallback: Firefox, Safari (file input opens the picker; save shows a "use a supported browser" prompt)
+
 ## Local development
 
 No build step. Clone, serve, open.
 
 ```bash
-git clone https://github.com/buildwithbaker/markdown-mate.git
-cd markdown-mate
+git clone https://github.com/buildwithbaker/pinion-md.git
+cd pinion-md
 python3 -m http.server 8000
-# or: npx serve
-# then open http://localhost:8000
 ```
 
-The File System Access API requires HTTPS or `localhost`, so a plain file:// open will not work for the file picker.
+Then open `http://localhost:8000/`. The File System Access API needs a secure context, so `file://` will not work for the file picker. `http://localhost` counts as secure.
 
 ## File layout
 
 ```
-markdown-mate/
-  index.html          # App shell, toolbar, landing state, reader view
-  style.css           # All styles; teal accent token at :root
-  app.js              # File picker, render pipeline, state
-  sw.js               # Service worker (cache-first)
-  manifest.json       # PWA manifest
-  icon.svg            # App icon (teal mark on rounded square)
-  vendor/             # Vendored third-party libraries
+pinion-md/
+  index.html              # App shell, header, split view, footer
+  style.css               # All styles; reader-surface tokens at :root, BwB tokens inherited
+  app.js                  # File System Access API, marked init, state, view toggle, shortcuts
+  sw.js                   # Service worker, cache-first for app shell
+  manifest.json           # PWA manifest
+  icon.svg                # Lucide Feather on indigo (source SVG)
+  icon-192.png            # Generated from icon.svg
+  icon-512.png            # Generated from icon.svg
+  icon-maskable-512.png   # Maskable variant for Android adaptive icons
+  vendor/
     marked.min.js
     highlight.min.js
     purify.min.js
-    github.min.css
-    github-dark.min.css
+    highlight-theme.css   # Syntax theme tuned for indigo-only palette
   LICENSE
   README.md
+  .gitignore
+  .nojekyll
 ```
 
 ## Updating vendored libraries
 
-Re-fetch from the same source URLs documented in the comment at the bottom of `index.html`, drop into `vendor/`, then bump `CACHE_NAME` in `sw.js` (e.g. `markdown-mate-v2` to `markdown-mate-v3`) so installed PWAs flush their old cache.
-
-## Scope 2 (planned)
-
-Edit mode is architected for but not built. The current code stores `FileSystemFileHandle` references so write-back, reload, and recent-files can be added without restructuring.
+Re-fetch from the source URLs, drop into `vendor/`, then bump `CACHE_NAME` in `sw.js` (e.g. `pinion-md-v1` to `pinion-md-v2`) so installed PWAs flush their old cache.
 
 ## License
 
@@ -111,4 +88,6 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-Built by Adam Baker - part of the [Build with Baker](https://github.com/buildwithbaker) tool family.
+Built by Adam Baker. A Build with Baker product.
+
+If Pinion.md is useful to you, [tip the maker on Ko-fi](https://ko-fi.com/abaker421).
