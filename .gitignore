@@ -1,7 +1,13 @@
 .DS_Store
 Thumbs.db
 *.log
+*.local
 .vscode/
 .idea/
 .claude/
 node_modules/
+
+# env (commit the example only)
+.env
+.env.*
+!.env.example
