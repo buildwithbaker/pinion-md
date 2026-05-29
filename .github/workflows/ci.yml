@@ -1,0 +1,59 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail if a tracked file/dir appears at the repo root that is not on the
+      # Build with Baker Repo Standard v2.0 permitted-root list. Keeps the root
+      # from silently collecting stray files again.
+      - name: Root hygiene
+        run: |
+          allow=$'index.html\nmanifest.json\nsw.js\n.nojekyll\nicon.svg\nicon-192.png\nicon-512.png\nicon-maskable-512.png\nicon-maskable.svg\nREADME.md\nLICENSE\nCLAUDE.md\n.editorconfig\n.gitignore\nvendor\ncss\njs\n.github'
+          fail=0
+          while IFS= read -r top; do
+            [ -z "$top" ] && continue
+            if ! grep -qxF "$top" <<< "$allow"; then
+              echo "::error::Disallowed root entry: $top"
+              fail=1
+            fi
+          done < <(git ls-files | sed 's#/.*##' | sort -u)
+          exit $fail
+
+      # Verify local href/src references in the shipped HTML actually exist on
+      # disk (catches broken relative links after a file move). Ignores absolute
+      # http(s), protocol-relative, mailto:, tel:, data:, and #anchors.
+      - name: Local link check
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const pages = fs.readdirSync('.').filter(f => f.endsWith('.html'));
+          let broken = 0;
+          for (const page of pages) {
+            const html = fs.readFileSync(page, 'utf8');
+            const refs = [...html.matchAll(/(?:href|src)\s*=\s*["']([^"']+)["']/gi)].map(m => m[1]);
+            for (let ref of refs) {
+              if (/^(https?:|\/\/|mailto:|tel:|data:|#|javascript:)/i.test(ref)) continue;
+              ref = ref.split('#')[0].split('?')[0];
+              if (!ref) continue;
+              const target = ref.startsWith('/') ? ref.slice(1) : ref;
+              if (!fs.existsSync(path.resolve(target))) {
+                console.log(`::error file=${page}::missing local target: ${ref}`);
+                broken++;
+              }
+            }
+          }
+          process.exit(broken ? 1 : 0);
+          EOF
