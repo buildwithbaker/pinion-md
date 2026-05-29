@@ -59,8 +59,8 @@ Then open `http://localhost:8000/`. The File System Access API needs a secure co
 ```
 pinion-md/
   index.html              # App shell, header, split view, footer
-  style.css               # All styles; reader-surface tokens at :root, BwB tokens inherited
-  app.js                  # File System Access API, marked init, state, view toggle, shortcuts
+  css/style.css           # All styles; reader-surface tokens at :root, BwB tokens inherited
+  js/app.js               # File System Access API, marked init, state, view toggle, shortcuts
   sw.js                   # Service worker, cache-first for app shell
   manifest.json           # PWA manifest
   icon.svg                # Lucide Feather on indigo (source SVG)
@@ -72,8 +72,10 @@ pinion-md/
     highlight.min.js
     purify.min.js
     highlight-theme.css   # Syntax theme tuned for indigo-only palette
+  CLAUDE.md
   LICENSE
   README.md
+  .editorconfig
   .gitignore
   .nojekyll
 ```
