@@ -1,6 +1,7 @@
 # CLAUDE.md - pinion-md
 
 See @README.md for what this project is.
+See @docs/internal/architecture.md for the deep architecture reference (app.js structure, render/sanitize flow, extension points, vendor updates, gotchas).
 
 Pinion.md is a hand-authored, build-free PWA: a markdown reader/writer using the
 File System Access API. Third-party libs are vendored in `vendor/` for true
