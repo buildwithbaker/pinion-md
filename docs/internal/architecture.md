@@ -45,7 +45,7 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker — CACHE_NAME 'pinion-md-v5', ASSETS precache list
+  sw.js                   service worker — CACHE_NAME 'pinion-md-v6', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope "./", theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
 
