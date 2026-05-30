@@ -84,6 +84,8 @@ pinion-md/
 
 Re-fetch from the source URLs, drop into `vendor/`, then bump `CACHE_NAME` in `sw.js` (e.g. `pinion-md-v1` to `pinion-md-v2`) so installed PWAs flush their old cache.
 
+> **Internals:** see [docs/internal/architecture.md](docs/internal/architecture.md) for the full architecture reference — app.js structure, render/sanitize flow, extension points, vendor updates, and gotchas.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
