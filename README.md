@@ -39,6 +39,7 @@ Inside the find bar: `Enter` next match, `Shift + Enter` previous match, `Esc` c
 | Markdown parser | [marked](https://github.com/markedjs/marked) 9.1.6 |
 | Sanitizer | [DOMPurify](https://github.com/cure53/DOMPurify) 3.1.6 |
 | Syntax highlighting | [highlight.js](https://highlightjs.org/) 11.10.0 |
+| Diagrams | [Mermaid](https://mermaid.js.org/) 10.9.3 |
 | File access | File System Access API (Chromium browsers) |
 | PWA | manifest.json + service worker (cache-first, fully offline after install) |
 | Hosting | GitHub Pages |
