@@ -16,12 +16,21 @@
   <link rel="stylesheet" href="vendor/highlight-theme.css">
 
   <link rel="manifest" href="manifest.json">
+  <link rel="canonical" href="https://buildwithbaker.github.io/pinion-md/">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
 
   <meta property="og:title" content="Pinion.md">
   <meta property="og:description" content="A clean, fast markdown reader and writer for the web. No accounts, no clutter, no upload.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://buildwithbaker.github.io/pinion-md/">
+  <meta property="og:image" content="https://buildwithbaker.github.io/pinion-md/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pinion.md">
+  <meta name="twitter:description" content="A clean, fast markdown reader and writer for the web. No accounts, no clutter, no upload.">
+  <meta name="twitter:image" content="https://buildwithbaker.github.io/pinion-md/og-image.png">
 </head>
 <body>
 
@@ -47,10 +56,32 @@
       <span class="header-spacer"></span>
 
       <div class="seg-control" role="tablist" aria-label="View mode" id="js-seg" hidden>
-        <button type="button" role="tab" data-view="preview" aria-selected="false">Preview</button>
-        <button type="button" role="tab" data-view="edit" aria-selected="false">Edit</button>
-        <button type="button" role="tab" data-view="split" class="active" aria-selected="true">Split</button>
+        <button type="button" role="tab" id="js-tab-preview" data-view="preview" aria-selected="false" aria-controls="js-pane-preview">Preview</button>
+        <button type="button" role="tab" id="js-tab-edit" data-view="edit" aria-selected="false" aria-controls="js-pane-source">Edit</button>
+        <button type="button" role="tab" id="js-tab-split" data-view="split" class="active" aria-selected="true" aria-controls="js-pane-source js-pane-preview">Split</button>
       </div>
+
+      <button id="js-toc-toggle" class="btn btn-ghost" type="button" aria-label="Toggle contents" aria-pressed="false" hidden>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        Contents
+      </button>
+
+      <button id="js-export" class="btn btn-ghost" type="button" aria-label="Export as HTML" hidden>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        Export HTML
+      </button>
 
       <button id="js-install" class="btn btn-ghost" type="button" hidden>
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -95,7 +126,7 @@
         </div>
       </section>
 
-      <section class="pane pane-source" id="js-pane-source" aria-label="Markdown source" hidden>
+      <section class="pane pane-source" id="js-pane-source" role="tabpanel" aria-labelledby="js-tab-edit" aria-label="Markdown source" hidden>
         <div class="pane-header">
           <span class="ph-left">
             <svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -116,7 +147,7 @@
         </div>
       </section>
 
-      <section class="pane pane-preview" id="js-pane-preview" aria-label="Rendered preview" hidden>
+      <section class="pane pane-preview" id="js-pane-preview" role="tabpanel" aria-labelledby="js-tab-preview" aria-label="Rendered preview" hidden>
         <div class="pane-header">
           <span class="ph-left">
             <svg class="ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -132,8 +163,28 @@
             <span class="ph-dot" id="js-live-dot" title="Live preview active" aria-hidden="true"></span>
           </span>
         </div>
-        <div class="pane-scroll">
-          <article class="preview-content" id="js-preview" aria-label="Rendered document"></article>
+        <div id="js-search" class="search-bar" role="search" hidden>
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input id="js-search-input" class="search-input" type="text" aria-label="Find in document" placeholder="Find in document…" spellcheck="false" autocomplete="off">
+          <span id="js-search-count" class="search-count" aria-live="polite"></span>
+          <button id="js-search-prev" class="search-btn" type="button" aria-label="Previous match">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button id="js-search-next" class="search-btn" type="button" aria-label="Next match">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <button id="js-search-close" class="search-btn" type="button" aria-label="Close search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="preview-body">
+          <nav id="js-toc" class="toc-panel" aria-label="Table of contents" hidden></nav>
+          <div class="pane-scroll">
+            <article class="preview-content" id="js-preview" aria-label="Rendered document"></article>
+          </div>
         </div>
       </section>
 

@@ -766,6 +766,225 @@ html, body {
 .toast[data-kind="danger"] { border-left-color: var(--bwb-status-danger); }
 .toast[data-kind="success"] { border-left-color: var(--bwb-status-success); }
 
+/* v1.1: ghost-button active state (Contents toggle pressed) */
+.btn-ghost.active {
+  background: var(--accent);
+  color: var(--bwb-text-inverse);
+  border-color: var(--accent);
+}
+.btn-ghost.active:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--bwb-text-inverse);
+}
+
+/* v1.1: Preview body = optional TOC rail beside the scroll area, under header */
+.preview-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.preview-body .pane-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* v1.1: Table of contents rail */
+.toc-panel {
+  flex: 0 0 auto;
+  width: 224px;
+  overflow: auto;
+  background: var(--reader-surface);
+  border-right: 2px solid var(--accent);
+  padding: 14px 12px 24px 16px;
+}
+.toc-label {
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0 6px 8px;
+}
+.toc-list,
+.toc-sublist { list-style: none; margin: 0; padding: 0; }
+.toc-sublist { padding-left: 12px; }
+.toc-sublist:empty { display: none; }
+.toc-item { margin: 0; }
+.toc-link {
+  display: block;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid transparent;
+  color: var(--bwb-text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.toc-link:hover { background: var(--reader-card-input); color: var(--accent); }
+.toc-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.toc-link.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-left-color: var(--accent);
+  background: var(--reader-card-input);
+}
+
+/* v1.1: Code-block copy button + language pill toolbar */
+.preview-content pre.has-tools::before { display: none; } /* JS draws the pill */
+.preview-content pre .pre-tools {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 1;
+}
+.preview-content pre .pre-tools .lang-pill {
+  background: var(--accent);
+  color: var(--bwb-text-inverse);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 10px;
+  border-radius: 0 var(--radius) 0 var(--radius-sm);
+}
+.code-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0 4px;
+  padding: 3px 7px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--bwb-text-secondary);
+  background: var(--reader-card);
+  border: 1px solid var(--bwb-border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms ease, color 80ms ease, border-color 80ms ease;
+}
+.preview-content pre:hover .code-copy-btn,
+.code-copy-btn:focus-visible { opacity: 1; }
+.code-copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+.code-copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.code-copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+.code-copy-btn .icon { width: 12px; height: 12px; }
+@media (hover: none) { .code-copy-btn { opacity: 1; } }
+
+/* v1.1: In-document search bar (overlay, top-right of the preview pane) */
+.search-bar {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 10px;
+  background: var(--reader-card);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(15, 26, 46, 0.18);
+}
+.search-bar .search-icon {
+  width: 15px; height: 15px;
+  color: var(--bwb-text-muted);
+  flex: 0 0 auto;
+}
+.search-input {
+  border: 0;
+  background: transparent;
+  color: var(--bwb-text-primary);
+  font: inherit;
+  font-size: 13px;
+  width: 160px;
+  outline: none;
+  padding: 2px 0;
+}
+.search-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--bwb-text-muted);
+  min-width: 58px;
+  text-align: right;
+  white-space: nowrap;
+}
+.search-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--bwb-text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.search-btn:hover { background: var(--reader-card-input); color: var(--accent); }
+.search-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search-btn svg { width: 15px; height: 15px; }
+
+/* v1.1: search match highlights */
+mark.search-hit {
+  background: rgba(43, 74, 139, 0.22);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+mark.search-hit.active {
+  background: var(--accent);
+  color: var(--bwb-text-inverse);
+}
+
+/* v1.1: YAML frontmatter metadata card */
+.preview-content .fm-card {
+  background: var(--reader-surface);
+  border: 1px solid var(--bwb-border-subtle);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+}
+.fm-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 18px;
+  margin: 0;
+}
+.fm-key {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+  padding-top: 1px;
+}
+.fm-val { margin: 0; color: var(--bwb-text-primary); }
+.fm-val.fm-empty { color: var(--bwb-text-muted); }
+.fm-raw {
+  grid-column: 1 / -1;
+  color: var(--bwb-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.fm-tag {
+  display: inline-block;
+  background: var(--reader-card-input);
+  border: 1px solid var(--bwb-border-strong);
+  border-radius: 999px;
+  padding: 1px 9px;
+  margin: 0 4px 4px 0;
+  font-size: 12px;
+}
+
 /* Narrow viewport graceful collapse - desktop-first per spec; this keeps
  * the chrome usable down to ~720px without targeting mobile as a v1 surface. */
 @media (max-width: 900px) {
@@ -777,4 +996,18 @@ html, body {
   .header { gap: 10px; padding: 0 12px; }
   .seg-control button { padding: 4px 8px; }
   .footer .left .stat:nth-child(n+3) { display: none; }
+}
+
+/* v1.1: on narrow widths the TOC becomes an overlay drawer instead of a rail. */
+@media (max-width: 720px) {
+  .preview-body { position: relative; }
+  .pane-preview.toc-open .toc-panel {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 78%;
+    max-width: 260px;
+    z-index: 5;
+    box-shadow: 4px 0 16px rgba(15, 26, 46, 0.22);
+  }
+  .search-input { width: 110px; }
 }

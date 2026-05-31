@@ -19,6 +19,7 @@
     lastSavedContent: '',
     view: 'landing', // 'landing' | 'preview' | 'edit' | 'split'
     isDirty: false,
+    tocOpen: false,
   };
 
   // ---------------------------------------------------------------------
@@ -54,7 +55,33 @@
     toast:          $('js-toast'),
     toastMsg:       $('js-toast-msg'),
     install:        $('js-install'),
+    tocToggle:      $('js-toc-toggle'),
+    toc:            $('js-toc'),
+    exportBtn:      $('js-export'),
+    searchBar:      $('js-search'),
+    searchInput:    $('js-search-input'),
+    searchCount:    $('js-search-count'),
+    searchPrev:     $('js-search-prev'),
+    searchNext:     $('js-search-next'),
+    searchClose:    $('js-search-close'),
   };
+
+  // The element that actually scrolls inside the preview pane. TOC links and
+  // search jumps scroll *this*, never the window.
+  const previewScroll = els.panePreview
+    ? els.panePreview.querySelector('.pane-scroll')
+    : null;
+
+  // In-document search state.
+  const search = {
+    open: false,
+    query: '',
+    hits: [],
+    active: -1,
+  };
+
+  // Whether the current document has enough headings to warrant a TOC.
+  let hasToc = false;
 
   // PWA install prompt - captured from beforeinstallprompt and replayed when
   // the user clicks the in-app Install button. Chromium fires this event on
@@ -118,6 +145,72 @@
     return escapeHtml(s);
   }
 
+  // Self-contained stylesheet for HTML export. Mirrors the indigo preview look
+  // (css/style.css) plus a compact highlight.js token palette, so the
+  // downloaded file renders standalone. Inlined into the Blob only — never
+  // loaded inside the app origin, so the page CSP does not apply to it.
+  const EXPORT_CSS = [
+    ':root{--accent:#2B4A8B;--accent-hover:#243F76;--ink:#0F1A2E;--ink2:#445063;',
+    '--muted:#5E6678;--surface:#E5E7EB;--card:#EEF0F3;--input:#F5F6F8;--border:#E1E6EE;}',
+    '*{box-sizing:border-box;}',
+    "body{margin:0;background:#fff;color:var(--ink);line-height:1.6;font-size:16px;",
+    "font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;",
+    '-webkit-font-smoothing:antialiased;}',
+    '.markdown-body{max-width:760px;margin:0 auto;padding:48px clamp(16px,5vw,32px) 72px;}',
+    '.markdown-body>*+*{margin-top:18px;}',
+    '.markdown-body h1,.markdown-body h2,.markdown-body h3,.markdown-body h4,',
+    '.markdown-body h5,.markdown-body h6{line-height:1.25;letter-spacing:-0.015em;}',
+    '.markdown-body h1{color:var(--accent);font-size:2em;font-weight:700;',
+    'padding-bottom:.3em;border-bottom:2px solid var(--accent);}',
+    '.markdown-body h2{color:var(--accent);font-size:1.4em;font-weight:600;margin-top:1.6em;',
+    'padding-left:.5em;border-left:3px solid var(--accent);}',
+    '.markdown-body h3{color:var(--accent-hover);font-size:1.1em;font-weight:600;margin-top:1.4em;',
+    'text-transform:uppercase;letter-spacing:.04em;}',
+    '.markdown-body h4,.markdown-body h5,.markdown-body h6{color:var(--ink2);font-weight:600;}',
+    '.markdown-body a{color:var(--accent);text-decoration:underline;text-underline-offset:3px;}',
+    '.markdown-body strong{font-weight:700;}.markdown-body em{font-style:italic;}',
+    ".markdown-body code{font-family:ui-monospace,'SFMono-Regular','Consolas',monospace;",
+    'font-size:.88em;background:var(--input);color:var(--accent);padding:2px 6px;',
+    'border-radius:4px;border:1px solid var(--accent);}',
+    '.markdown-body pre{position:relative;background:var(--input);border:1px solid var(--accent);',
+    'border-radius:8px;padding:16px 18px;overflow:auto;}',
+    '.markdown-body pre code{background:none;border:0;padding:0;color:var(--ink);',
+    'font-size:.85em;display:block;}',
+    '.markdown-body blockquote{margin:0;padding:14px 18px;border-left:4px solid var(--accent);',
+    'background:var(--surface);color:var(--ink2);font-style:italic;',
+    'border-radius:0 4px 4px 0;}',
+    '.markdown-body ul,.markdown-body ol{padding-left:1.4em;}',
+    '.markdown-body li{margin-top:4px;}',
+    '.markdown-body li::marker{color:var(--accent);}',
+    '.markdown-body table{width:100%;border-collapse:collapse;font-size:.95em;',
+    'border:1px solid var(--border);}',
+    '.markdown-body thead{background:var(--surface);border-bottom:2px solid var(--accent);}',
+    '.markdown-body th,.markdown-body td{text-align:left;padding:9px 12px;',
+    'border-bottom:1px solid var(--border);}',
+    '.markdown-body th{color:var(--accent);font-weight:600;font-size:.85em;',
+    'text-transform:uppercase;letter-spacing:.05em;}',
+    '.markdown-body img{max-width:100%;height:auto;border-radius:4px;}',
+    '.markdown-body hr{border:0;border-top:2px solid var(--accent);margin:2em 0;opacity:.4;}',
+    '.fm-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;',
+    'padding:14px 16px;}',
+    '.fm-list{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0;}',
+    '.fm-key{color:var(--accent);font-weight:600;font-size:.85em;margin:0;}',
+    '.fm-val{margin:0;color:var(--ink);}',
+    '.fm-raw{grid-column:1/-1;color:var(--muted);font-family:ui-monospace,monospace;font-size:.85em;}',
+    '.fm-tag{display:inline-block;background:var(--input);border:1px solid var(--border);',
+    'border-radius:999px;padding:1px 9px;margin:0 4px 4px 0;font-size:.82em;}',
+    // highlight.js compact palette
+    '.hljs{color:#0F1A2E;}',
+    '.hljs-comment,.hljs-quote{color:#5E6678;font-style:italic;}',
+    '.hljs-keyword,.hljs-selector-tag,.hljs-built_in,.hljs-name,.hljs-tag{color:#2B4A8B;}',
+    '.hljs-string,.hljs-attr,.hljs-template-tag,.hljs-addition{color:#0A7D4F;}',
+    '.hljs-number,.hljs-literal,.hljs-variable,.hljs-type{color:#B5530F;}',
+    '.hljs-title,.hljs-section{color:#5A3FB5;font-weight:600;}',
+    '.hljs-attribute,.hljs-symbol,.hljs-bullet,.hljs-meta{color:#9A3412;}',
+    '.hljs-emphasis{font-style:italic;}.hljs-strong{font-weight:700;}',
+    '.hljs-deletion{color:#B82F2F;}',
+  ].join('');
+
   // ---------------------------------------------------------------------
   // Browser capability detection
   // ---------------------------------------------------------------------
@@ -133,11 +226,21 @@
       els.preview.textContent = state.content;
       return;
     }
-    const rawHtml = marked.parse(state.content || '');
+    // Strip a leading YAML frontmatter block before marked sees it, so it no
+    // longer renders as a stray table; the parsed data becomes a metadata card.
+    let md = state.content || '';
+    const fm = extractFrontmatter(md);
+    if (fm) md = fm.body;
+
+    const rawHtml = marked.parse(md);
+    // Guardrail: all markdown-derived HTML flows through DOMPurify.
     const clean = DOMPurify.sanitize(rawHtml, {
       ADD_ATTR: ['target', 'rel'],
     });
     els.preview.innerHTML = clean;
+
+    // Frontmatter card sits above the document body (built via DOM, not markup).
+    if (fm) renderFrontmatterCard(fm.entries);
 
     // External-looking links open in a new tab safely.
     const links = els.preview.querySelectorAll('a[href]');
@@ -148,6 +251,14 @@
         a.setAttribute('rel', 'noopener noreferrer');
       }
     });
+
+    // Post-render passes over the sanitized DOM (never over raw markup).
+    decorateCodeBlocks();
+    decorateHeadings();
+    buildToc();
+
+    // Keep live search highlights in sync while editing in Split.
+    if (search.open) runSearch(search.query, true);
 
     updateStats();
   }
@@ -170,6 +281,534 @@
   }
 
   // ---------------------------------------------------------------------
+  // Code-block copy buttons
+  // ---------------------------------------------------------------------
+
+  // Inline SVGs (no sprite sheet in this app — buttons carry their own markup).
+  const ICON_COPY =
+    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>' +
+    '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  const ICON_CHECK =
+    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<polyline points="20 6 9 17 4 12"/></svg>';
+
+  // Add a copy button + language pill toolbar to each <pre>. The CSS-generated
+  // ::before pill is suppressed (.has-tools) so the JS pill can sit beside the
+  // button. Built with DOM APIs and textContent — never injected as markup.
+  function decorateCodeBlocks() {
+    const pres = els.preview.querySelectorAll('pre');
+    pres.forEach(function (pre) {
+      if (pre.querySelector('.pre-tools')) return;
+      const code = pre.querySelector('code');
+      if (!code) return;
+
+      pre.classList.add('has-tools');
+
+      const tools = document.createElement('div');
+      tools.className = 'pre-tools';
+      tools.setAttribute('data-chrome', 'code');
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.setAttribute('aria-label', 'Copy code');
+      btn.innerHTML = ICON_COPY + '<span class="code-copy-label">Copy</span>';
+      btn.addEventListener('click', function () { copyCode(code, btn); });
+      tools.appendChild(btn);
+
+      const lang = pre.getAttribute('data-lang') || '';
+      if (lang) {
+        const pill = document.createElement('span');
+        pill.className = 'lang-pill';
+        pill.textContent = lang;
+        tools.appendChild(pill);
+      }
+
+      pre.appendChild(tools);
+    });
+  }
+
+  function copyCode(code, btn) {
+    const text = code.textContent || '';
+    const done = function () { flashCopied(btn); };
+    const fail = function () { toast('Could not copy code', 'danger'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fail);
+    } else {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        done();
+      } catch (e) {
+        fail();
+      }
+    }
+  }
+
+  function flashCopied(btn) {
+    const label = btn.querySelector('.code-copy-label');
+    btn.innerHTML = ICON_CHECK + '<span class="code-copy-label">Copied</span>';
+    btn.classList.add('copied');
+    if (btn._copyTimer) clearTimeout(btn._copyTimer);
+    btn._copyTimer = setTimeout(function () {
+      btn.innerHTML = ICON_COPY + '<span class="code-copy-label">Copy</span>';
+      btn.classList.remove('copied');
+    }, 1300);
+  }
+
+  // ---------------------------------------------------------------------
+  // Headings + Table of Contents
+  // ---------------------------------------------------------------------
+
+  function slugify(text) {
+    return String(text || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  // Assign GitHub-style slug ids to headings AFTER sanitize, so DOMPurify's
+  // config never has to accept ids from the markdown input.
+  function decorateHeadings() {
+    const heads = els.preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    const seen = Object.create(null);
+    heads.forEach(function (h) {
+      const base = slugify(h.textContent) || 'section';
+      let slug = base;
+      if (base in seen) {
+        seen[base] += 1;
+        slug = base + '-' + seen[base];
+      } else {
+        seen[base] = 0;
+      }
+      h.id = slug;
+    });
+  }
+
+  // Rebuild the nested TOC every render so it tracks edits in Split.
+  function buildToc() {
+    if (!els.toc) return;
+    els.toc.textContent = '';
+
+    const heads = els.preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    hasToc = heads.length >= 2;
+    if (!hasToc) {
+      refreshTocControls();
+      return;
+    }
+
+    const label = document.createElement('div');
+    label.className = 'toc-label';
+    label.textContent = 'Contents';
+    els.toc.appendChild(label);
+
+    const root = document.createElement('ul');
+    root.className = 'toc-list';
+    const stack = [{ level: 0, ul: root }];
+
+    heads.forEach(function (h) {
+      const level = Number(h.tagName.slice(1));
+      const li = document.createElement('li');
+      li.className = 'toc-item';
+      const a = document.createElement('a');
+      a.className = 'toc-link';
+      a.href = '#' + h.id;
+      a.textContent = h.textContent || '';
+      a.setAttribute('data-target', h.id);
+      li.appendChild(a);
+
+      while (stack.length > 1 && stack[stack.length - 1].level >= level) stack.pop();
+      stack[stack.length - 1].ul.appendChild(li);
+
+      const sub = document.createElement('ul');
+      sub.className = 'toc-sublist';
+      li.appendChild(sub);
+      stack.push({ level: level, ul: sub });
+    });
+
+    els.toc.appendChild(root);
+    refreshTocControls();
+  }
+
+  function previewVisible() {
+    return state.view === 'preview' || state.view === 'split';
+  }
+
+  // The Contents toggle only makes sense when the preview is on screen and the
+  // document has 2+ headings.
+  function refreshTocControls() {
+    if (!els.tocToggle) return;
+    const allow = hasToc && previewVisible();
+    els.tocToggle.hidden = !allow;
+    if (!allow) setTocOpen(false);
+  }
+
+  function setTocOpen(open) {
+    const want = !!open && hasToc && previewVisible();
+    state.tocOpen = want;
+    if (els.panePreview) els.panePreview.classList.toggle('toc-open', want);
+    if (els.toc) els.toc.hidden = !want;
+    if (els.tocToggle) {
+      els.tocToggle.classList.toggle('active', want);
+      els.tocToggle.setAttribute('aria-pressed', want ? 'true' : 'false');
+    }
+  }
+
+  function toggleToc() {
+    setTocOpen(!state.tocOpen);
+  }
+
+  function onTocClick(e) {
+    const a = e.target.closest && e.target.closest('a[data-target]');
+    if (!a) return;
+    e.preventDefault();
+    const id = a.getAttribute('data-target');
+    const target = id && els.preview.querySelector('#' + cssEscape(id));
+    if (target) scrollPreviewTo(target);
+    if (window.matchMedia('(max-width: 720px)').matches) setTocOpen(false);
+  }
+
+  function cssEscape(s) {
+    if (window.CSS && CSS.escape) return CSS.escape(s);
+    return String(s).replace(/[^\w-]/g, '\\$&');
+  }
+
+  // Smooth-scroll within the preview scroll container (never the window).
+  function scrollPreviewTo(el) {
+    if (!previewScroll || !el) return;
+    const cRect = previewScroll.getBoundingClientRect();
+    const eRect = el.getBoundingClientRect();
+    const top = previewScroll.scrollTop + (eRect.top - cRect.top) - 12;
+    previewScroll.scrollTo({ top: top, behavior: 'smooth' });
+  }
+
+  // Scrollspy: mark the TOC link for the heading nearest the top.
+  function updateScrollspy() {
+    if (!state.tocOpen || !previewScroll) return;
+    const heads = els.preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    if (!heads.length) return;
+    const cTop = previewScroll.getBoundingClientRect().top;
+    let activeId = heads[0].id;
+    for (let i = 0; i < heads.length; i++) {
+      if (heads[i].getBoundingClientRect().top - cTop <= 24) activeId = heads[i].id;
+      else break;
+    }
+    const links = els.toc.querySelectorAll('.toc-link');
+    links.forEach(function (l) {
+      l.classList.toggle('active', l.getAttribute('data-target') === activeId);
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // YAML frontmatter (dependency-free, common-case parser)
+  // ---------------------------------------------------------------------
+
+  // Returns { entries, body } when the document opens with a --- block,
+  // otherwise null. Only a leading block counts; a later --- (horizontal rule)
+  // is never treated as the closing fence.
+  function extractFrontmatter(md) {
+    const text = md || '';
+    const lines = text.split('\n');
+    if (lines.length < 2) return null;
+    if (stripCr(lines[0]).trim() !== '---') return null;
+    let end = -1;
+    for (let i = 1; i < lines.length; i++) {
+      if (stripCr(lines[i]).trim() === '---') { end = i; break; }
+    }
+    if (end === -1) return null;
+    const block = lines.slice(1, end).map(stripCr).join('\n');
+    const body = lines.slice(end + 1).join('\n');
+    return { entries: parseYaml(block), body: body };
+  }
+
+  function stripCr(s) { return String(s).replace(/\r$/, ''); }
+
+  // Parses a frontmatter block into ordered entries. Handles key: value,
+  // quoted strings, numbers/booleans, inline [a, b] lists and `- item` block
+  // lists. Unparseable lines are preserved verbatim (key === null).
+  function parseYaml(block) {
+    const lines = block.split('\n');
+    const entries = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      if (/^\s*#/.test(line)) continue;
+      const m = line.match(/^([A-Za-z0-9_.\-][A-Za-z0-9_.\- ]*):\s*(.*)$/);
+      if (!m) {
+        entries.push({ key: null, value: null, raw: line });
+        continue;
+      }
+      const key = m[1].trim();
+      const rest = m[2].trim();
+      if (rest === '') {
+        // Possible block list on the following indented `- item` lines.
+        const items = [];
+        let j = i + 1;
+        while (j < lines.length) {
+          const mm = lines[j].match(/^\s*-\s+(.*)$/);
+          if (mm) { items.push(parseScalar(mm[1].trim())); j++; }
+          else break;
+        }
+        if (items.length) { entries.push({ key: key, value: items }); i = j - 1; }
+        else entries.push({ key: key, value: '' });
+      } else if (/^\[.*\]$/.test(rest)) {
+        const inner = rest.slice(1, -1).trim();
+        const items = inner
+          ? inner.split(',').map(function (s) { return parseScalar(s.trim()); })
+          : [];
+        entries.push({ key: key, value: items });
+      } else {
+        entries.push({ key: key, value: parseScalar(rest) });
+      }
+    }
+    return entries;
+  }
+
+  function parseScalar(s) {
+    if (s === '') return '';
+    const q = s.match(/^"([\s\S]*)"$/) || s.match(/^'([\s\S]*)'$/);
+    if (q) return q[1];
+    if (/^(true|false)$/i.test(s)) return /^true$/i.test(s);
+    if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
+    return s;
+  }
+
+  // Render parsed frontmatter as a compact metadata card at the top of the
+  // preview. Built with DOM APIs + textContent, so no sanitize needed.
+  function renderFrontmatterCard(entries) {
+    if (!entries || !entries.length) return;
+    const card = document.createElement('div');
+    card.className = 'fm-card';
+    const list = document.createElement('dl');
+    list.className = 'fm-list';
+
+    entries.forEach(function (e) {
+      if (e.key === null) {
+        const raw = document.createElement('div');
+        raw.className = 'fm-raw';
+        raw.textContent = e.raw;
+        list.appendChild(raw);
+        return;
+      }
+      const dt = document.createElement('dt');
+      dt.className = 'fm-key';
+      dt.textContent = e.key;
+      const dd = document.createElement('dd');
+      dd.className = 'fm-val';
+      if (Array.isArray(e.value)) {
+        if (!e.value.length) {
+          dd.classList.add('fm-empty');
+          dd.textContent = '—';
+        }
+        e.value.forEach(function (v) {
+          const tag = document.createElement('span');
+          tag.className = 'fm-tag';
+          tag.textContent = String(v);
+          dd.appendChild(tag);
+        });
+      } else {
+        const str = String(e.value);
+        dd.textContent = str === '' ? '—' : str;
+        if (str === '') dd.classList.add('fm-empty');
+      }
+      list.appendChild(dt);
+      list.appendChild(dd);
+    });
+
+    card.appendChild(list);
+    els.preview.insertBefore(card, els.preview.firstChild);
+  }
+
+  // ---------------------------------------------------------------------
+  // In-document search
+  // ---------------------------------------------------------------------
+
+  function openSearch() {
+    if (!els.searchBar) return;
+    search.open = true;
+    els.searchBar.hidden = false;
+    if (els.searchInput) {
+      els.searchInput.focus();
+      els.searchInput.select();
+      if (els.searchInput.value) runSearch(els.searchInput.value, false);
+      else updateSearchCount();
+    }
+  }
+
+  function closeSearch() {
+    search.open = false;
+    if (els.searchBar) els.searchBar.hidden = true;
+    clearHighlights();
+    updateSearchCount();
+  }
+
+  function clearHighlights() {
+    if (!els.preview) return;
+    const marks = els.preview.querySelectorAll('mark.search-hit');
+    marks.forEach(function (m) {
+      const t = document.createTextNode(m.textContent);
+      m.parentNode.replaceChild(t, m);
+    });
+    if (marks.length) els.preview.normalize();
+    search.hits = [];
+    search.active = -1;
+  }
+
+  // Wrap every match in <mark> via a text-node walk (never innerHTML, which
+  // would drop handlers and re-run sanitize). keepActive preserves the current
+  // match index across a live re-render.
+  function runSearch(query, keepActive) {
+    const prevActive = keepActive ? search.active : 0;
+    clearHighlights();
+    search.query = query || '';
+    if (!search.query) { updateSearchCount(); return; }
+
+    const q = search.query.toLowerCase();
+    const walker = document.createTreeWalker(els.preview, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+        const p = node.parentNode;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        if (p.nodeName === 'SCRIPT' || p.nodeName === 'STYLE') return NodeFilter.FILTER_REJECT;
+        // Skip injected chrome (copy buttons, language pills).
+        if (p.closest && p.closest('.pre-tools')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+
+    const textNodes = [];
+    let n;
+    while ((n = walker.nextNode())) textNodes.push(n);
+
+    const hits = [];
+    textNodes.forEach(function (tn) {
+      const text = tn.nodeValue;
+      const lower = text.toLowerCase();
+      if (lower.indexOf(q) === -1) return;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      let idx = lower.indexOf(q);
+      while (idx !== -1) {
+        if (idx > last) frag.appendChild(document.createTextNode(text.slice(last, idx)));
+        const mark = document.createElement('mark');
+        mark.className = 'search-hit';
+        mark.textContent = text.slice(idx, idx + q.length);
+        frag.appendChild(mark);
+        hits.push(mark);
+        last = idx + q.length;
+        idx = lower.indexOf(q, last);
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      tn.parentNode.replaceChild(frag, tn);
+    });
+
+    search.hits = hits;
+    if (!hits.length) {
+      search.active = -1;
+      updateSearchCount();
+      return;
+    }
+    let start = prevActive;
+    if (start < 0 || start >= hits.length) start = 0;
+    setActiveHit(start, !keepActive);
+  }
+
+  function setActiveHit(i, doScroll) {
+    if (!search.hits.length) return;
+    if (i < 0) i = search.hits.length - 1;
+    if (i >= search.hits.length) i = 0;
+    search.hits.forEach(function (h) { h.classList.remove('active'); });
+    search.active = i;
+    const h = search.hits[i];
+    h.classList.add('active');
+    if (doScroll !== false) scrollPreviewTo(h);
+    updateSearchCount();
+  }
+
+  function nextHit() { if (search.hits.length) setActiveHit(search.active + 1, true); }
+  function prevHit() { if (search.hits.length) setActiveHit(search.active - 1, true); }
+
+  function updateSearchCount() {
+    if (!els.searchCount) return;
+    if (!search.query) { els.searchCount.textContent = ''; return; }
+    if (!search.hits.length) { els.searchCount.textContent = 'No matches'; return; }
+    els.searchCount.textContent = (search.active + 1) + ' of ' + search.hits.length;
+  }
+
+  function onSearchInput() {
+    runSearch(els.searchInput.value, false);
+  }
+
+  function onSearchKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) prevHit();
+      else nextHit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeSearch();
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // HTML export (self-contained, chrome-free)
+  // ---------------------------------------------------------------------
+
+  function canExport() {
+    return state.view !== 'landing' && !!(state.content && state.content.length);
+  }
+
+  function exportHtml() {
+    if (!canExport()) {
+      toast('Open a file before exporting.', 'warning');
+      return;
+    }
+    const clone = els.preview.cloneNode(true);
+    // Strip app chrome: copy buttons / pills, search highlights.
+    clone.querySelectorAll('.pre-tools').forEach(function (node) { node.remove(); });
+    clone.querySelectorAll('mark.search-hit').forEach(function (m) {
+      m.replaceWith(document.createTextNode(m.textContent));
+    });
+    clone.normalize();
+
+    const title = baseName(state.fileName || 'document');
+    const docHtml =
+      '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
+      '<meta charset="UTF-8">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+      '<title>' + escapeHtml(title) + '</title>\n' +
+      '<style>\n' + EXPORT_CSS + '\n</style>\n' +
+      '</head>\n<body>\n' +
+      '<article class="markdown-body">\n' + clone.innerHTML + '\n</article>\n' +
+      '</body>\n</html>\n';
+
+    const blob = new Blob([docHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = title + '.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    toast('Exported ' + title + '.html', 'success');
+  }
+
+  function baseName(name) {
+    return String(name).replace(/\.(md|markdown|mdown|mkd|txt)$/i, '') || 'document';
+  }
+
+  // ---------------------------------------------------------------------
   // View mode
   // ---------------------------------------------------------------------
 
@@ -182,6 +821,10 @@
       els.panePreview.hidden = true;
       els.seg.hidden = true;
       els.fileBadge.hidden = true;
+      if (els.exportBtn) els.exportBtn.hidden = true;
+      if (els.tocToggle) els.tocToggle.hidden = true;
+      closeSearch();
+      setTocOpen(false);
       if (els.footerLanding) els.footerLanding.hidden = false;
       if (els.footerStats) els.footerStats.hidden = true;
       return;
@@ -189,6 +832,10 @@
 
     els.seg.hidden = false;
     els.fileBadge.hidden = false;
+    if (els.exportBtn) els.exportBtn.hidden = false;
+    // The Contents toggle and live search only apply when the preview shows.
+    refreshTocControls();
+    if (!previewVisible()) closeSearch();
     if (els.footerLanding) els.footerLanding.hidden = true;
     if (els.footerStats) els.footerStats.hidden = false;
 
@@ -375,10 +1022,21 @@
 
   function onKeyDown(e) {
     const mod = e.ctrlKey || e.metaKey;
-    if (!mod) return;
+    if (!mod) {
+      if (e.key === 'Escape' && search.open) {
+        e.preventDefault();
+        closeSearch();
+      }
+      return;
+    }
     const key = e.key.toLowerCase();
 
-    if (key === 'o') {
+    if (key === 'f') {
+      // In-app find, only when there is a rendered document to search.
+      if (state.view === 'landing') return;
+      e.preventDefault();
+      openSearch();
+    } else if (key === 'o') {
       e.preventDefault();
       openFile();
     } else if (key === 's') {
@@ -418,6 +1076,27 @@
     });
 
     els.source.addEventListener('input', onSourceInput);
+
+    if (els.tocToggle) els.tocToggle.addEventListener('click', toggleToc);
+    if (els.toc) els.toc.addEventListener('click', onTocClick);
+    if (els.exportBtn) els.exportBtn.addEventListener('click', exportHtml);
+
+    if (els.searchInput) {
+      els.searchInput.addEventListener('input', onSearchInput);
+      els.searchInput.addEventListener('keydown', onSearchKeyDown);
+    }
+    if (els.searchNext) els.searchNext.addEventListener('click', nextHit);
+    if (els.searchPrev) els.searchPrev.addEventListener('click', prevHit);
+    if (els.searchClose) els.searchClose.addEventListener('click', closeSearch);
+
+    if (previewScroll) {
+      let spyTick = false;
+      previewScroll.addEventListener('scroll', function () {
+        if (spyTick) return;
+        spyTick = true;
+        requestAnimationFrame(function () { spyTick = false; updateScrollspy(); });
+      });
+    }
 
     document.addEventListener('keydown', onKeyDown);
 

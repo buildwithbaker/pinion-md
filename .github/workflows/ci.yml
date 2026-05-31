@@ -20,7 +20,7 @@ jobs:
       # from silently collecting stray files again.
       - name: Root hygiene
         run: |
-          allow=$'index.html\nmanifest.json\nsw.js\n.nojekyll\nicon.svg\nicon-192.png\nicon-512.png\nicon-maskable-512.png\nicon-maskable.svg\nREADME.md\nLICENSE\nCLAUDE.md\n.editorconfig\n.gitignore\nvendor\ncss\njs\ndocs\n.github'
+          allow=$'index.html\nmanifest.json\nsw.js\n.nojekyll\nrobots.txt\nsitemap.xml\nog-image.png\nicon.svg\nicon-180.png\nicon-192.png\nicon-512.png\nicon-maskable-512.png\nicon-maskable.svg\nREADME.md\nLICENSE\nCLAUDE.md\n.editorconfig\n.gitignore\nvendor\ncss\njs\ndocs\n.github'
           fail=0
           while IFS= read -r top; do
             [ -z "$top" ] && continue

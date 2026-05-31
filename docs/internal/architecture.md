@@ -1,6 +1,6 @@
 # Pinion.md — Architecture Reference
 
-Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-29.
+Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.1).
 
 ---
 
@@ -18,6 +18,11 @@ What it does:
 - Save changes back to the original file; reload from disk to pick up external edits
 - Full CommonMark + GFM (headings, lists, tables, task lists, fenced code, blockquotes, inline code, images, links)
 - Syntax highlighting for fenced code via highlight.js
+- **Table of contents** rail (auto-built from headings, with scrollspy)
+- **Copy button** on every code block
+- **In-document find** (`Ctrl+F`) with match count + next/prev cycling
+- **YAML frontmatter** rendered as a metadata card (stripped from the body)
+- **HTML export** to a single self-contained `.html` file
 - Installable PWA, fully offline after first load
 
 ---
@@ -45,11 +50,15 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker — CACHE_NAME 'pinion-md-v6', ASSETS precache list
+  sw.js                   service worker — CACHE_NAME 'pinion-md-v8', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope "./", theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
+  robots.txt              allow-all + sitemap reference
+  sitemap.xml             single-URL sitemap (root)
 
+  og-image.png            1200x630 social card (og:image / twitter:image)
   icon.svg                Lucide Feather on indigo (source)
+  icon-180.png            apple-touch-icon (downscaled from icon-512.png)
   icon-192.png            generated from icon.svg
   icon-512.png            generated from icon.svg
   icon-maskable-512.png   maskable variant for Android adaptive icons
@@ -76,7 +85,13 @@ pinion-md/
 - **`state`** — the whole app model: `{ fileHandle, fileName, fileSize, content, lastSavedContent, view, isDirty }`. `view` is one of `'landing' | 'preview' | 'edit' | 'split'`.
 - **`els`** — cached DOM refs (all `js-`-prefixed IDs) looked up once via `$(id)`.
 - **Custom marked renderer** — overrides `renderer.code` to emit `<pre><code class="language-x hljs" data-lang="x">` so highlight.js can theme fenced blocks. `escapeHtml` / `escapeAttr` guard the lang label.
-- **`renderPreview()`** — `marked.parse(content)` → **`DOMPurify.sanitize(...)`** → inject into the preview pane. Post-process: external links get safe attributes. **Sanitization is mandatory** — never inject raw `marked` output.
+- **`renderPreview()`** — strip leading YAML frontmatter (`extractFrontmatter`) → `marked.parse(content)` → **`DOMPurify.sanitize(...)`** → inject into the preview pane. **Sanitization is mandatory** — never inject raw `marked` output. Post-render passes run on the *sanitized DOM* (so DOMPurify config is untouched): frontmatter metadata card (`renderFrontmatterCard`), external-link attributes, code-block copy buttons + language pills (`decorateCodeBlocks`), GitHub-style heading slug ids (`decorateHeadings`), TOC build (`buildToc`), and a live re-highlight of the search term if the find bar is open.
+- **v1.1 post-render features** — all are DOM-built (no markup injection), so they respect the strict CSP:
+  - *TOC* (`buildToc`/`setTocOpen`): a nested rail inside the preview pane; toggled by the header **Contents** button (auto-hidden under 2 headings). Links smooth-scroll the `.pane-scroll` container; `updateScrollspy` highlights the active section. Narrow widths render it as an overlay drawer.
+  - *Copy buttons* (`decorateCodeBlocks`): a `.pre-tools` toolbar per `<pre>` (copy button + JS language pill; the CSS `::before` pill is suppressed via `.has-tools`). Copies `code.textContent` via `navigator.clipboard`.
+  - *Find* (`runSearch`/`clearHighlights`): `Ctrl+F` opens an overlay bar; matches are wrapped in `<mark class="search-hit">` via a **text-node walk** (never innerHTML), so handlers survive. `Enter`/`Shift+Enter` cycle, `Esc` closes. Highlights are stripped before save/export.
+  - *Frontmatter* (`extractFrontmatter`/`parseYaml`): dependency-free parser for `key: value`, quoted strings, numbers/booleans, inline `[a, b]` and `- item` block lists; unparseable lines pass through verbatim. The **source pane and saved file keep the raw frontmatter**; only the preview strips + cards it.
+  - *HTML export* (`exportHtml`): clones the preview, removes chrome (`.pre-tools`, `mark.search-hit`), and wraps it with the inline `EXPORT_CSS` (indigo theme + compact hljs palette) into a downloaded Blob. The inline `<style>` is allowed because the file is downloaded, never served from the app origin.
 - **`updateStats()`** — line count, KB size, word count, read time (`ceil(words/200)`, min 1).
 - **`setView(view)`** — swaps the active pane(s) and the segmented-control active state.
 - **File ops** — `openFile()` (FSAA `showOpenFilePicker`), `openFileFallback()` (`<input type=file>` for non-FSAA browsers — read-only), `loadFromHandle()`, `saveFile()` (`createWritable()`), `reloadFile()` (re-reads from disk, confirms if dirty).
@@ -86,7 +101,7 @@ pinion-md/
 
 **Browser support:** file picker + save-in-place works in Chromium (Chrome, Edge, Opera; desktop + Android). Firefox/Safari fall back to read-only (`openFileFallback`); save shows a "use a supported browser" prompt.
 
-**Keyboard shortcuts:** `Ctrl+O` open · `Ctrl+E` toggle preview/edit · `Ctrl+S` save · `Ctrl+R` reload from disk.
+**Keyboard shortcuts:** `Ctrl+O` open · `Ctrl+F` find in document · `Ctrl+E` toggle preview/edit · `Ctrl+S` save · `Ctrl+R` reload from disk. In the find bar: `Enter`/`Shift+Enter` next/prev, `Esc` close.
 
 ---
 
