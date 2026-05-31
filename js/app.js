@@ -20,6 +20,7 @@
     view: 'landing', // 'landing' | 'preview' | 'edit' | 'split'
     isDirty: false,
     tocOpen: false,
+    lastModified: 0,    // mtime of the open file, for external-change detection (v1.3)
   };
 
   // ---------------------------------------------------------------------
@@ -65,6 +66,12 @@
     searchNext:     $('js-search-next'),
     searchClose:    $('js-search-close'),
     dropOverlay:    $('js-drop-overlay'),
+    recent:         $('js-recent'),
+    recentList:     $('js-recent-list'),
+    recentClear:    $('js-recent-clear'),
+    changedBar:     $('js-changed-bar'),
+    changedReload:  $('js-changed-reload'),
+    changedDismiss: $('js-changed-dismiss'),
   };
 
   // The element that actually scrolls inside the preview pane. TOC links and
@@ -97,6 +104,11 @@
 
   // Drag-and-drop enter/leave depth counter (Feature 2, v1.2).
   let dragDepth = 0;
+
+  // Auto-reload-on-disk-change polling state (v1.3).
+  let pollTimer = null;     // setInterval handle
+  let pollInFlight = false; // guard against overlapping getFile() reads
+  const POLL_MS = 2500;
 
   // PWA install prompt - captured from beforeinstallprompt and replayed when
   // the user clicks the in-app Install button. Chromium fires this event on
@@ -1211,6 +1223,8 @@
       state.fileHandle = null; // no handle in fallback - read-only
       state.fileName = f.name;
       state.fileSize = f.size;
+      state.lastModified = f.lastModified || 0;
+      stopPolling(); // no handle to watch in the fallback path
       const text = await f.text();
       onContentLoaded(text);
       toast('Read-only mode: file open works, save needs a Chromium browser.', 'warning');
@@ -1224,8 +1238,13 @@
       const file = await state.fileHandle.getFile();
       state.fileName = file.name;
       state.fileSize = file.size;
+      state.lastModified = file.lastModified || 0;
       const text = await file.text();
       onContentLoaded(text);
+      // Remember this file for the landing "Recent" list (FSAA handles only).
+      addRecent(state.fileHandle, state.fileName);
+      // Begin watching the handle for external changes.
+      startPolling();
     } catch (err) {
       toast('Could not read file: ' + (err.message || err), 'danger');
     }
@@ -1238,6 +1257,7 @@
     els.source.value = text;
     els.fileName.textContent = state.fileName || 'untitled.md';
     els.fileBadge.classList.remove('dirty');
+    hideChangedBar();
     renderPreview();
     setStatus('Loaded', 'just now');
     if (state.view === 'landing') setView('split');
@@ -1259,12 +1279,15 @@
       state.lastSavedContent = state.content;
       state.isDirty = false;
       els.fileBadge.classList.remove('dirty');
-      // Refresh size after save
+      // Refresh size + mtime after save so our own write is not mistaken for
+      // an external change by the auto-reload poller.
       try {
         const f = await state.fileHandle.getFile();
         state.fileSize = f.size;
+        state.lastModified = f.lastModified || state.lastModified;
         updateStats();
       } catch (e) { /* ignore */ }
+      hideChangedBar();
       setStatus('Saved', 'just now');
       toast('Saved', 'success');
     } catch (err) {
@@ -1281,6 +1304,260 @@
       const ok = confirm('You have unsaved changes. Reload from disk and lose them?');
       if (!ok) return;
     }
+    await loadFromHandle();
+    toast('Reloaded from disk', 'success');
+  }
+
+  // ---------------------------------------------------------------------
+  // Recent files (FileSystemFileHandle persistence via IndexedDB, v1.3)
+  // ---------------------------------------------------------------------
+  //
+  // FileSystemFileHandle objects are structured-cloneable, so we can stash
+  // them in IndexedDB and re-open the file on a later visit (after a one-tap
+  // permission re-grant — the browser will not silently re-grant disk access).
+  // localStorage cannot hold handles (string-only), which is why this uses IDB.
+
+  const DB_NAME = 'pinion-md';
+  const DB_VERSION = 1;
+  const STORE = 'kv';
+  const RECENT_KEY = 'recent';
+  const RECENT_MAX = 8;
+
+  // Recent files only work where we get a real handle (Chromium FSAA).
+  const recentSupported = hasFSAccess && typeof window.indexedDB !== 'undefined';
+
+  function idbOpen() {
+    return new Promise(function (resolve, reject) {
+      let req;
+      try {
+        req = window.indexedDB.open(DB_NAME, DB_VERSION);
+      } catch (e) {
+        reject(e);
+        return;
+      }
+      req.onupgradeneeded = function () {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  function idbGet(key) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        const tx = db.transaction(STORE, 'readonly');
+        const r = tx.objectStore(STORE).get(key);
+        r.onsuccess = function () { resolve(r.result); };
+        r.onerror = function () { reject(r.error); };
+      });
+    });
+  }
+
+  function idbSet(key, val) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(val, key);
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+    });
+  }
+
+  function recentLoad() {
+    if (!recentSupported) return Promise.resolve([]);
+    return idbGet(RECENT_KEY).then(function (list) {
+      return Array.isArray(list) ? list : [];
+    }).catch(function () { return []; });
+  }
+
+  // Add (or bump to front) a handle in the recent list, de-duped by identity.
+  async function addRecent(handle, name) {
+    if (!recentSupported || !handle) return;
+    try {
+      const list = await recentLoad();
+      const kept = [];
+      for (let i = 0; i < list.length; i++) {
+        const e = list[i];
+        let same = false;
+        try {
+          if (e.handle && handle.isSameEntry) same = await handle.isSameEntry(e.handle);
+        } catch (err) { same = false; }
+        if (!same) kept.push(e);
+      }
+      kept.unshift({ handle: handle, name: name || 'untitled.md', ts: nowTs() });
+      const trimmed = kept.slice(0, RECENT_MAX);
+      await idbSet(RECENT_KEY, trimmed);
+      renderRecent(trimmed);
+    } catch (err) {
+      /* recent list is best-effort; never block file loading */
+    }
+  }
+
+  async function clearRecent() {
+    if (!recentSupported) return;
+    try { await idbSet(RECENT_KEY, []); } catch (err) { /* ignore */ }
+    renderRecent([]);
+  }
+
+  // A monotonic-ish timestamp without Date.now() (kept ordering-only).
+  let tsCounter = 0;
+  function nowTs() { tsCounter += 1; return tsCounter; }
+
+  function renderRecent(list) {
+    if (!els.recent || !els.recentList) return;
+    const items = list || [];
+    els.recentList.textContent = '';
+    if (!recentSupported || !items.length) {
+      els.recent.hidden = true;
+      return;
+    }
+    items.forEach(function (entry) {
+      const li = document.createElement('li');
+      li.className = 'recent-item';
+
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'recent-open';
+      open.innerHTML =
+        '<svg class="recent-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+        '<polyline points="14 2 14 8 20 8"/></svg>';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'recent-name';
+      nameSpan.textContent = entry.name || 'untitled.md';
+      open.appendChild(nameSpan);
+      open.addEventListener('click', function () { openFromRecent(entry); });
+      li.appendChild(open);
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'recent-remove';
+      remove.setAttribute('aria-label', 'Remove ' + (entry.name || 'file') + ' from recent');
+      remove.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      remove.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        removeRecent(entry);
+      });
+      li.appendChild(remove);
+
+      els.recentList.appendChild(li);
+    });
+    els.recent.hidden = false;
+  }
+
+  async function removeRecent(entry) {
+    if (!recentSupported) return;
+    try {
+      const list = await recentLoad();
+      const kept = [];
+      for (let i = 0; i < list.length; i++) {
+        let same = false;
+        try {
+          if (entry.handle && list[i].handle && entry.handle.isSameEntry) {
+            same = await entry.handle.isSameEntry(list[i].handle);
+          }
+        } catch (err) { same = false; }
+        if (!same) kept.push(list[i]);
+      }
+      await idbSet(RECENT_KEY, kept);
+      renderRecent(kept);
+    } catch (err) { /* ignore */ }
+  }
+
+  // Re-grant disk permission (requires the click gesture) and open the file.
+  async function openFromRecent(entry) {
+    if (!entry || !entry.handle) return;
+    const handle = entry.handle;
+    if (state.isDirty) {
+      const ok = confirm('You have unsaved changes. Open "' +
+        (entry.name || 'this file') + '" and lose them?');
+      if (!ok) return;
+    }
+    try {
+      const granted = await ensureReadPermission(handle);
+      if (!granted) {
+        toast('Permission denied for "' + (entry.name || 'file') + '".', 'warning');
+        return;
+      }
+      state.fileHandle = handle;
+      await loadFromHandle();   // refreshes recency, starts polling
+    } catch (err) {
+      if (err && err.name === 'NotFoundError') {
+        toast('That file could not be found — it may have moved or been deleted.', 'danger');
+        removeRecent(entry);
+      } else {
+        toast('Could not open file: ' + (err.message || err), 'danger');
+      }
+    }
+  }
+
+  async function ensureReadPermission(handle) {
+    if (!handle || !handle.queryPermission) return true; // older impls: assume ok
+    const opts = { mode: 'read' };
+    try {
+      if ((await handle.queryPermission(opts)) === 'granted') return true;
+      if ((await handle.requestPermission(opts)) === 'granted') return true;
+    } catch (err) { /* fall through */ }
+    return false;
+  }
+
+  // ---------------------------------------------------------------------
+  // Auto-reload on external file change (poll the handle, v1.3)
+  // ---------------------------------------------------------------------
+
+  function startPolling() {
+    stopPolling();
+    if (!state.fileHandle) return;
+    pollTimer = setInterval(pollTick, POLL_MS);
+  }
+
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  async function pollTick() {
+    if (!state.fileHandle || pollInFlight) return;
+    if (typeof document.hidden === 'boolean' && document.hidden) return; // pause when tab hidden
+    pollInFlight = true;
+    try {
+      const file = await state.fileHandle.getFile();
+      const mtime = file.lastModified || 0;
+      if (mtime && mtime !== state.lastModified) {
+        if (!state.isDirty) {
+          // Clean buffer: pull the new content in silently.
+          await loadFromHandle();
+          toast('Reloaded — file changed on disk', 'info');
+        } else {
+          // Dirty buffer: never clobber. Advance mtime so we alert once per
+          // distinct external change, and surface a non-blocking choice.
+          state.lastModified = mtime;
+          showChangedBar();
+        }
+      }
+    } catch (err) {
+      // Permission revoked or file removed mid-session: stop polling quietly.
+      stopPolling();
+    } finally {
+      pollInFlight = false;
+    }
+  }
+
+  function showChangedBar() {
+    if (els.changedBar) els.changedBar.hidden = false;
+  }
+  function hideChangedBar() {
+    if (els.changedBar) els.changedBar.hidden = true;
+  }
+
+  async function reloadDiscard() {
+    hideChangedBar();
     await loadFromHandle();
     toast('Reloaded from disk', 'success');
   }
@@ -1548,6 +1825,22 @@
     window.addEventListener('dragover', onDragOver);
     window.addEventListener('dragleave', onDragLeave);
     window.addEventListener('drop', onDrop);
+
+    // Recent files (v1.3): populate the landing list and wire Clear.
+    if (els.recentClear) els.recentClear.addEventListener('click', clearRecent);
+    if (recentSupported) {
+      recentLoad().then(renderRecent).catch(function () { /* ignore */ });
+    }
+
+    // Auto-reload banner buttons (v1.3).
+    if (els.changedReload) els.changedReload.addEventListener('click', reloadDiscard);
+    if (els.changedDismiss) els.changedDismiss.addEventListener('click', hideChangedBar);
+
+    // When the tab regains focus, check the file immediately (polling pauses
+    // while hidden) so a change made elsewhere is picked up without delay.
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) pollTick();
+    });
 
     document.addEventListener('keydown', onKeyDown);
 

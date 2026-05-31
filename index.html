@@ -123,6 +123,13 @@
           <p class="landing-unsupported" id="js-unsupported" hidden>
             Your browser does not support the File System Access API. Read-only mode is available in Chrome, Edge, or Opera.
           </p>
+          <section class="recent" id="js-recent" aria-label="Recent files" hidden>
+            <div class="recent-head">
+              <span class="recent-label">Recent</span>
+              <button class="recent-clear" id="js-recent-clear" type="button" aria-label="Clear recent files">Clear</button>
+            </div>
+            <ul class="recent-list" id="js-recent-list"></ul>
+          </section>
         </div>
       </section>
 
@@ -205,6 +212,14 @@
 
   <div class="toast" id="js-toast" role="alert" aria-live="assertive" hidden>
     <span id="js-toast-msg"></span>
+  </div>
+
+  <div class="changed-bar" id="js-changed-bar" role="alert" aria-live="polite" hidden>
+    <span class="changed-msg">This file changed on disk. You have unsaved edits.</span>
+    <span class="changed-actions">
+      <button class="changed-btn changed-reload" id="js-changed-reload" type="button">Reload &amp; discard</button>
+      <button class="changed-btn changed-dismiss" id="js-changed-dismiss" type="button">Keep editing</button>
+    </span>
   </div>
 
   <div class="drop-overlay" id="js-drop-overlay" aria-hidden="true" hidden>
