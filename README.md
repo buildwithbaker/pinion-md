@@ -12,6 +12,11 @@ A clean, fast markdown reader and writer for the web. Point it at a `.md` file o
 - Reload from disk to pick up external edits
 - Full CommonMark + GFM: headings, lists, tables, task lists, fenced code blocks, blockquotes, inline code, images, links
 - Syntax highlighting for fenced code blocks via highlight.js
+- Table of contents panel that navigates long documents (auto-built from headings)
+- One-click copy button on every code block
+- In-document find (`Ctrl + F`) with match count and next/previous cycling
+- YAML frontmatter rendered as a clean metadata card instead of a stray table
+- Export the rendered document to a self-contained `.html` file
 - Installable PWA. Works offline after first load.
 
 ## Keyboard shortcuts
@@ -19,9 +24,12 @@ A clean, fast markdown reader and writer for the web. Point it at a `.md` file o
 | Action | Shortcut |
 |---|---|
 | Open file | `Ctrl + O` |
+| Find in document | `Ctrl + F` |
 | Toggle preview / edit | `Ctrl + E` |
 | Save changes | `Ctrl + S` |
 | Reload from disk | `Ctrl + R` |
+
+Inside the find bar: `Enter` next match, `Shift + Enter` previous match, `Esc` close.
 
 ## Tech stack
 
