@@ -1,6 +1,6 @@
 # Pinion.md — Architecture Reference
 
-Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.1).
+Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.2).
 
 ---
 
@@ -35,6 +35,7 @@ What it does:
 | Markdown parser | [marked](https://github.com/markedjs/marked) | 9.1.6 |
 | Sanitizer | [DOMPurify](https://github.com/cure53/DOMPurify) | 3.1.6 |
 | Syntax highlighting | [highlight.js](https://highlightjs.org/) | 11.10.0 |
+| Diagrams | [Mermaid](https://mermaid.js.org/) (classic UMD build) | 10.9.3 |
 | File access | File System Access API (Chromium) | — |
 | PWA | `manifest.json` + `sw.js` (cache-first) | — |
 | Hosting | GitHub Pages (project site) | — |
@@ -50,7 +51,7 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker — CACHE_NAME 'pinion-md-v8', ASSETS precache list
+  sw.js                   service worker — CACHE_NAME 'pinion-md-v9', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope "./", theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
   robots.txt              allow-all + sitemap reference
@@ -68,13 +69,23 @@ pinion-md/
     marked.min.js
     highlight.min.js
     purify.min.js
+    mermaid.min.js        Mermaid 10.9.3 classic UMD build (~3.2 MB) — diagrams
     highlight-theme.css   syntax theme tuned for the indigo-only palette
 
   docs/internal/
     architecture.md       this file
 ```
 
-`index.html` loads marked, highlight.js, and DOMPurify (from `vendor/`) **before** `js/app.js`, which depends on all three being present on `window`.
+`index.html` loads marked, highlight.js, DOMPurify, and Mermaid (from `vendor/`) **before** `js/app.js`, which depends on them being present on `window`. Mermaid is optional at runtime — if `window.mermaid` is absent the diagram pass simply no-ops and ` ```mermaid ` blocks stay as code.
+
+**Vendored library provenance:**
+
+| Lib | Version | Source URL |
+|---|---|---|
+| marked | 9.1.6 | `https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js` |
+| DOMPurify | 3.1.6 | `https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js` |
+| highlight.js | 11.10.0 | `https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.10.0/highlight.min.js` |
+| Mermaid | 10.9.3 | `https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js` (classic UMD; sets `window.mermaid`) |
 
 ---
 
@@ -92,6 +103,11 @@ pinion-md/
   - *Find* (`runSearch`/`clearHighlights`): `Ctrl+F` opens an overlay bar; matches are wrapped in `<mark class="search-hit">` via a **text-node walk** (never innerHTML), so handlers survive. `Enter`/`Shift+Enter` cycle, `Esc` closes. Highlights are stripped before save/export.
   - *Frontmatter* (`extractFrontmatter`/`parseYaml`): dependency-free parser for `key: value`, quoted strings, numbers/booleans, inline `[a, b]` and `- item` block lists; unparseable lines pass through verbatim. The **source pane and saved file keep the raw frontmatter**; only the preview strips + cards it.
   - *HTML export* (`exportHtml`): clones the preview, removes chrome (`.pre-tools`, `mark.search-hit`), and wraps it with the inline `EXPORT_CSS` (indigo theme + compact hljs palette) into a downloaded Blob. The inline `<style>` is allowed because the file is downloaded, never served from the app origin.
+- **v1.2 post-render features** — also DOM-built; the two pipeline-order details that matter:
+  - *Mermaid diagrams* (`renderMermaid`, async): `renderer.code` emits a clean ` <pre data-lang="mermaid"> ` carrier (no hljs spans, so `code.textContent` is the exact source). `decorateCodeBlocks` skips mermaid carriers; the async `renderMermaid()` pass (scheduled by `scheduleMermaid()` after the sync passes) calls `await mermaid.render()` per block and swaps each `<pre>` for a `<div class="mermaid-diagram">`. It is **debounced (160 ms)** and guarded by a monotonic `renderToken` so live typing in Split never thrashes or injects a stale diagram; on a render error the original code block is left in place with an inline `.mermaid-error` note (never throws, never blanks the preview). `mermaid.initialize({ securityLevel:'strict', theme:'base', htmlLabels:false, themeVariables:{…indigo…} })` runs once — strict mode makes Mermaid sanitize its own SVG, which is why that SVG may bypass the main DOMPurify pass.
+  - *Footnotes* (`processFootnotes`): two small inline marked extensions tag `[^x]` refs as `<sup class="fn-ref" data-fn>` and `[^x]:` defs as `<div class="fn-def" data-fn>` — no ids in the markup, so DOMPurify is untouched. The post-render `processFootnotes()` numbers footnotes in reference order, moves the (already-sanitized) definition nodes into a bottom `<section class="footnotes">` (a `div` title, **not** a heading, so it stays out of the TOC), and wires jump + back-reference (`↩`) links with ids assigned here (like `decorateHeadings`). Multiple refs to one note share its number and get numbered back-refs; an orphan ref degrades to plain `[^label]` text; unreferenced/duplicate defs leave no stray markup.
+- **Drag-and-drop open** (`onDrop` + `dragenter`/`dragover`/`dragleave`): window-level listeners show an indigo dashed `#js-drop-overlay` while a file hovers (depth-counted so nested dragleave doesn't flicker). On drop, the `DataTransfer` is snapshotted synchronously (it goes dead after the first `await`); if FSAA + `getAsFileSystemHandle()` are available it obtains a `FileSystemFileHandle` so save-in-place still works, else it falls back to `dataTransfer.files[0]` (read-only). Only markdown extensions are accepted; non-markdown is toasted and ignored; multiple files open the first and toast; unsaved changes prompt first.
+  - *Sync scroll* (`syncScroll`): in Split only, each pane's `scroll` drives the other by scroll-percentage (`scrollTop / (scrollHeight - clientHeight)`), guarded by an `isSyncing` flag (cleared on the next animation frame) so the programmatic scroll doesn't feed back.
 - **`updateStats()`** — line count, KB size, word count, read time (`ceil(words/200)`, min 1).
 - **`setView(view)`** — swaps the active pane(s) and the segmented-control active state.
 - **File ops** — `openFile()` (FSAA `showOpenFilePicker`), `openFileFallback()` (`<input type=file>` for non-FSAA browsers — read-only), `loadFromHandle()`, `saveFile()` (`createWritable()`), `reloadFile()` (re-reads from disk, confirms if dirty).

@@ -64,6 +64,7 @@
     searchPrev:     $('js-search-prev'),
     searchNext:     $('js-search-next'),
     searchClose:    $('js-search-close'),
+    dropOverlay:    $('js-drop-overlay'),
   };
 
   // The element that actually scrolls inside the preview pane. TOC links and
@@ -82,6 +83,20 @@
 
   // Whether the current document has enough headings to warrant a TOC.
   let hasToc = false;
+
+  // Mermaid diagram render state (Feature 1, v1.2).
+  let mermaidReady = false;   // initialize() has been called
+  let mermaidSheet = null;    // constructed stylesheet holding diagram CSS (CSP-safe)
+  let mermaidCss = [];        // CSS lifted from each diagram this render (reused by export)
+  let mermaidSeq = 0;         // monotonic id source for mermaid.render()
+  let renderToken = 0;        // bumped per render; invalidates stale async passes
+  let mermaidTimer = null;    // debounce handle for the async pass
+
+  // Split-view sync-scroll re-entrancy guard (Feature 3, v1.2).
+  let isSyncing = false;
+
+  // Drag-and-drop enter/leave depth counter (Feature 2, v1.2).
+  let dragDepth = 0;
 
   // PWA install prompt - captured from beforeinstallprompt and replayed when
   // the user clicks the in-app Install button. Chromium fires this event on
@@ -110,6 +125,13 @@
     const renderer = new marked.Renderer();
     renderer.code = function (code, infostring, escaped) {
       const lang = (infostring || '').match(/\S*/)[0];
+      // Mermaid fenced blocks are claimed by the renderMermaid() post-render
+      // pass. Emit a clean, un-highlighted carrier so code.textContent is the
+      // exact diagram source (no stray hljs spans to strip back out).
+      if (lang === 'mermaid') {
+        return '<pre data-lang="mermaid"><code class="language-mermaid">' +
+          escapeHtml(code) + '</code></pre>\n';
+      }
       let highlighted = '';
       if (lang && window.hljs && hljs.getLanguage(lang)) {
         try {
@@ -130,7 +152,49 @@
       const langClass = lang ? ` class="language-${escapeAttr(lang)} hljs"` : ' class="hljs"';
       return `<pre${langAttr}><code${langClass}>${highlighted}</code></pre>\n`;
     };
+
+    // Footnotes (GFM-style): [^label] references + [^label]: definitions.
+    // The extensions only TAG refs/defs in the HTML; numbering, the bottom
+    // footnotes section, and back-references are assembled deterministically in
+    // the processFootnotes() post-render pass — so DOMPurify never has to accept
+    // ids, and all the ordering logic lives in one place.
+    const footnoteDefExt = {
+      name: 'footnoteDef',
+      level: 'block',
+      start(src) { const m = src.match(/^\[\^[^\]\s]+\]:/m); return m ? m.index : undefined; },
+      tokenizer(src) {
+        const m = /^\[\^([^\]\s]+)\]:[ \t]*([^\n]*)/.exec(src);
+        if (m) {
+          const text = (m[2] || '').trim();
+          return {
+            type: 'footnoteDef',
+            raw: m[0],
+            label: m[1],
+            tokens: this.lexer.inlineTokens(text),
+          };
+        }
+      },
+      renderer(token) {
+        return '<div class="fn-def" data-fn="' + escapeAttr(token.label) + '">' +
+          this.parser.parseInline(token.tokens) + '</div>';
+      },
+    };
+    const footnoteRefExt = {
+      name: 'footnoteRef',
+      level: 'inline',
+      start(src) { const i = src.indexOf('[^'); return i < 0 ? undefined : i; },
+      tokenizer(src) {
+        const m = /^\[\^([^\]\s]+)\]/.exec(src);
+        if (m) return { type: 'footnoteRef', raw: m[0], label: m[1] };
+      },
+      renderer(token) {
+        return '<sup class="fn-ref" data-fn="' + escapeAttr(token.label) + '">' +
+          escapeHtml(token.label) + '</sup>';
+      },
+    };
+
     marked.use({ renderer });
+    marked.use({ extensions: [footnoteDefExt, footnoteRefExt] });
   }
 
   function escapeHtml(s) {
@@ -211,6 +275,21 @@
     '.hljs-deletion{color:#B82F2F;}',
   ].join('');
 
+  // v1.2 export additions: Mermaid diagram container + footnotes. (Mermaid's
+  // own per-diagram CSS is appended separately from mermaidCss at export time.)
+  const EXPORT_CSS_V12 = [
+    '.mermaid-diagram{margin:1.2em 0;text-align:center;}',
+    '.mermaid-diagram svg{max-width:100%;height:auto;}',
+    '.footnotes{margin-top:2.4em;}',
+    '.footnotes-title{color:#2B4A8B;font-weight:600;font-size:.8em;text-transform:uppercase;',
+    'letter-spacing:.08em;border-top:2px solid #2B4A8B;padding-top:.8em;margin-bottom:.4em;}',
+    '.footnotes-list{padding-left:1.4em;color:#445063;font-size:.92em;}',
+    '.footnotes-list li{margin-top:.5em;}',
+    '.footnotes-list li::marker{color:#2B4A8B;}',
+    '.footnote-backref{color:#2B4A8B;text-decoration:none;margin-left:4px;}',
+    'sup.fn-ref a,.fn-ref-link{color:#2B4A8B;text-decoration:none;font-weight:600;}',
+  ].join('');
+
   // ---------------------------------------------------------------------
   // Browser capability detection
   // ---------------------------------------------------------------------
@@ -254,6 +333,7 @@
 
     // Post-render passes over the sanitized DOM (never over raw markup).
     decorateCodeBlocks();
+    processFootnotes();
     decorateHeadings();
     buildToc();
 
@@ -261,6 +341,10 @@
     if (search.open) runSearch(search.query, true);
 
     updateStats();
+
+    // Async diagram pass (Mermaid). Debounced + render-token guarded so live
+    // typing in Split never thrashes or injects stale diagrams.
+    scheduleMermaid();
   }
 
   function updateStats() {
@@ -299,6 +383,8 @@
   function decorateCodeBlocks() {
     const pres = els.preview.querySelectorAll('pre');
     pres.forEach(function (pre) {
+      // Mermaid carriers are replaced wholesale by renderMermaid(); no chrome.
+      if (pre.getAttribute('data-lang') === 'mermaid') return;
       if (pre.querySelector('.pre-tools')) return;
       const code = pre.querySelector('code');
       if (!code) return;
@@ -361,6 +447,224 @@
       btn.innerHTML = ICON_COPY + '<span class="code-copy-label">Copy</span>';
       btn.classList.remove('copied');
     }, 1300);
+  }
+
+  // ---------------------------------------------------------------------
+  // Mermaid diagrams (async post-render pass, Feature 1)
+  // ---------------------------------------------------------------------
+
+  // Indigo-only theme variables — no bright default Mermaid colors.
+  const MERMAID_THEME_VARS = {
+    primaryColor: '#EEF0F3',        // ~ --reader-card
+    primaryBorderColor: '#2B4A8B',  // ~ --accent
+    primaryTextColor: '#0F1A2E',    // ~ --bwb-text-primary
+    lineColor: '#5C7EC5',           // indigo-light
+    secondaryColor: '#E5E7EB',      // ~ --reader-surface
+    tertiaryColor: '#F5F6F8',       // ~ --reader-card-input
+    secondaryBorderColor: '#2B4A8B',
+    tertiaryBorderColor: '#5C7EC5',
+    noteBkgColor: '#E8EDF7',        // ~ --accent-soft
+    noteBorderColor: '#2B4A8B',
+    noteTextColor: '#0F1A2E',
+    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
+  };
+
+  function initMermaid() {
+    if (mermaidReady || !window.mermaid) return;
+    try {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        // 'strict' makes Mermaid sanitize its own SVG and disable click-script
+        // handlers — this is why the SVG may bypass the main DOMPurify pass.
+        securityLevel: 'strict',
+        theme: 'base',
+        htmlLabels: false,                                  // avoid foreignObject
+        flowchart: { htmlLabels: false, useMaxWidth: true },
+        themeVariables: MERMAID_THEME_VARS,
+      });
+      mermaidReady = true;
+    } catch (e) {
+      // On init failure diagrams simply remain as code blocks.
+    }
+  }
+
+  // Debounced trigger. Always bumps renderToken so a stale in-flight pass can
+  // detect it was superseded; only schedules real work if mermaid blocks exist.
+  function scheduleMermaid() {
+    renderToken += 1;
+    const token = renderToken;
+    if (!window.mermaid) return;
+    if (!els.preview.querySelector('pre[data-lang="mermaid"]')) return;
+    if (mermaidTimer) clearTimeout(mermaidTimer);
+    mermaidTimer = setTimeout(function () {
+      renderMermaid(token).catch(function () { /* never reject into the void */ });
+    }, 160);
+  }
+
+  async function renderMermaid(token) {
+    if (!window.mermaid) return;
+    initMermaid();
+    if (!mermaidReady) return;
+    const pres = [].slice.call(els.preview.querySelectorAll('pre[data-lang="mermaid"]'));
+    if (!pres.length) return;
+
+    mermaidCss = [];  // rebuilt fresh each pass; export reads this afterwards
+    for (let i = 0; i < pres.length; i++) {
+      const pre = pres[i];
+      const codeEl = pre.querySelector('code');
+      const src = (codeEl ? codeEl.textContent : pre.textContent) || '';
+      const id = 'mmd-' + (++mermaidSeq);
+      let svg = '';
+      try {
+        const out = await window.mermaid.render(id, src);
+        svg = out && out.svg ? out.svg : '';
+      } catch (e) {
+        if (token !== renderToken) return;  // superseded mid-flight
+        const note = document.createElement('div');
+        note.className = 'mermaid-error';
+        note.textContent = 'Diagram error: ' + (e && e.message ? e.message : 'could not render');
+        pre.parentNode.insertBefore(note, pre.nextSibling);
+        continue;  // leave the original code block in place
+      }
+      if (token !== renderToken) return;  // a newer render started; abandon this one
+
+      const wrap = document.createElement('div');
+      wrap.className = 'mermaid-diagram';
+      // Mermaid hardened this SVG under securityLevel:'strict'.
+      wrap.innerHTML = svg;
+
+      // CSP-safe styling: lift the SVG's <style> into a constructed stylesheet
+      // (CSSOM rules are exempt from the inline-style CSP restriction), then
+      // drop the now-redundant inline <style> from the SVG. The diagram id on
+      // the SVG scopes those rules, so styling survives.
+      const styleEl = wrap.querySelector('style');
+      if (styleEl) {
+        mermaidCss.push(styleEl.textContent || '');
+        styleEl.remove();
+      }
+      pre.replaceWith(wrap);
+    }
+    applyMermaidSheet();
+  }
+
+  // Push the collected diagram CSS into a single constructed stylesheet adopted
+  // by the document. No <style> element, no inline styles => CSP stays strict.
+  function applyMermaidSheet() {
+    const cssText = mermaidCss.join('\n');
+    if (!mermaidSheet && typeof window.CSSStyleSheet === 'function') {
+      try {
+        mermaidSheet = new CSSStyleSheet();
+        document.adoptedStyleSheets = document.adoptedStyleSheets.concat(mermaidSheet);
+      } catch (e) {
+        mermaidSheet = null;
+      }
+    }
+    if (mermaidSheet) {
+      try { mermaidSheet.replaceSync(cssText); } catch (e) { /* ignore */ }
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Footnotes (post-render assembly, Feature 4)
+  // ---------------------------------------------------------------------
+
+  // Refs (sup.fn-ref) and defs (.fn-def) are tagged by the marked extensions.
+  // Here we number footnotes in reference order, move definition content into a
+  // single footnotes section at the bottom, and wire jump + back-reference
+  // links. ids are assigned here (after sanitize), like decorateHeadings does.
+  function processFootnotes() {
+    const defEls = [].slice.call(els.preview.querySelectorAll('.fn-def'));
+    const defByLabel = {};
+    defEls.forEach(function (d) {
+      const label = d.getAttribute('data-fn');
+      if (label && !(label in defByLabel)) {
+        // Move the (already-sanitized) nodes out, rather than re-parsing HTML.
+        const frag = document.createDocumentFragment();
+        while (d.firstChild) frag.appendChild(d.firstChild);
+        defByLabel[label] = frag;
+      }
+      d.remove();  // duplicate defs (and unreferenced ones) leave no stray markup
+    });
+
+    const refEls = [].slice.call(els.preview.querySelectorAll('sup.fn-ref'));
+    if (!refEls.length) return;  // defs with no refs render nothing (GitHub parity)
+
+    const num = {};
+    const refIdsByLabel = {};
+    let counter = 0;
+    refEls.forEach(function (sup) {
+      const label = sup.getAttribute('data-fn');
+      if (!label || !(label in defByLabel)) {
+        // Reference with no matching definition: degrade to plain text.
+        sup.replaceWith(document.createTextNode('[^' + (label || '') + ']'));
+        return;
+      }
+      if (!(label in num)) { num[label] = ++counter; refIdsByLabel[label] = []; }
+      const n = num[label];
+      const k = refIdsByLabel[label].length + 1;
+      const refId = 'fnref-' + n + (k > 1 ? '-' + k : '');
+      refIdsByLabel[label].push(refId);
+      sup.id = refId;
+      sup.textContent = '';
+      const a = document.createElement('a');
+      a.className = 'fn-ref-link';
+      a.href = '#fn-' + n;
+      a.setAttribute('aria-label', 'Footnote ' + n);
+      a.textContent = String(n);
+      sup.appendChild(a);
+    });
+    if (!counter) return;  // every reference was an orphan
+
+    const section = document.createElement('section');
+    section.className = 'footnotes';
+    // Deliberately NOT a heading element, so it does not pollute the TOC.
+    const title = document.createElement('div');
+    title.className = 'footnotes-title';
+    title.textContent = 'Footnotes';
+    section.appendChild(title);
+
+    const ol = document.createElement('ol');
+    ol.className = 'footnotes-list';
+    const labelsByNum = [];
+    Object.keys(num).forEach(function (l) { labelsByNum[num[l] - 1] = l; });
+    labelsByNum.forEach(function (label) {
+      const n = num[label];
+      const li = document.createElement('li');
+      li.className = 'footnote-item';
+      li.id = 'fn-' + n;
+      const content = document.createElement('span');
+      content.className = 'footnote-content';
+      content.appendChild(defByLabel[label]);
+      li.appendChild(content);
+      const ids = refIdsByLabel[label];
+      ids.forEach(function (refId, idx) {
+        const back = document.createElement('a');
+        back.className = 'footnote-backref';
+        back.href = '#' + refId;
+        back.setAttribute('aria-label', 'Back to content');
+        back.appendChild(document.createTextNode(' ↩'));
+        if (ids.length > 1) {
+          const s = document.createElement('sup');
+          s.textContent = String(idx + 1);
+          back.appendChild(s);
+        }
+        li.appendChild(back);
+      });
+      ol.appendChild(li);
+    });
+    section.appendChild(ol);
+    els.preview.appendChild(section);
+  }
+
+  // In-pane navigation for footnote jump / back-reference links (mirrors the
+  // TOC behavior: scroll the preview container, not the window/URL hash).
+  function onPreviewAnchorClick(e) {
+    const a = e.target.closest && e.target.closest('a.fn-ref-link, a.footnote-backref');
+    if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (href.charAt(0) !== '#') return;
+    const target = els.preview.querySelector('#' + cssEscape(href.slice(1)));
+    if (target) { e.preventDefault(); scrollPreviewTo(target); }
   }
 
   // ---------------------------------------------------------------------
@@ -680,8 +984,10 @@
         const p = node.parentNode;
         if (!p) return NodeFilter.FILTER_REJECT;
         if (p.nodeName === 'SCRIPT' || p.nodeName === 'STYLE') return NodeFilter.FILTER_REJECT;
-        // Skip injected chrome (copy buttons, language pills).
-        if (p.closest && p.closest('.pre-tools')) return NodeFilter.FILTER_REJECT;
+        // Skip injected chrome (copy buttons, language pills) and rendered SVG.
+        if (p.closest && (p.closest('.pre-tools') || p.closest('.mermaid-diagram'))) {
+          return NodeFilter.FILTER_REJECT;
+        }
         return NodeFilter.FILTER_ACCEPT;
       },
     });
@@ -774,12 +1080,18 @@
       return;
     }
     const clone = els.preview.cloneNode(true);
-    // Strip app chrome: copy buttons / pills, search highlights.
+    // Strip app chrome: copy buttons / pills, search highlights, error notes.
     clone.querySelectorAll('.pre-tools').forEach(function (node) { node.remove(); });
+    clone.querySelectorAll('.mermaid-error').forEach(function (node) { node.remove(); });
     clone.querySelectorAll('mark.search-hit').forEach(function (m) {
       m.replaceWith(document.createTextNode(m.textContent));
     });
     clone.normalize();
+
+    // Mermaid diagram styles live in a constructed stylesheet (CSSOM), so they
+    // are NOT inline in the clone — inline the collected CSS into the export so
+    // diagrams render correctly in the standalone file.
+    const mermaidStyle = mermaidCss.length ? '\n' + mermaidCss.join('\n') : '';
 
     const title = baseName(state.fileName || 'document');
     const docHtml =
@@ -787,7 +1099,7 @@
       '<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
       '<title>' + escapeHtml(title) + '</title>\n' +
-      '<style>\n' + EXPORT_CSS + '\n</style>\n' +
+      '<style>\n' + EXPORT_CSS + '\n' + EXPORT_CSS_V12 + mermaidStyle + '\n</style>\n' +
       '</head>\n<body>\n' +
       '<article class="markdown-body">\n' + clone.innerHTML + '\n</article>\n' +
       '</body>\n</html>\n';
@@ -1057,6 +1369,130 @@
   }
 
   // ---------------------------------------------------------------------
+  // Drag-and-drop open (Feature 2, v1.2)
+  // ---------------------------------------------------------------------
+
+  function isMarkdownName(name) {
+    return /\.(md|markdown|mdown|mkd)$/i.test(name || '');
+  }
+
+  function dtHasFiles(dt) {
+    if (!dt || !dt.types) return false;
+    for (let i = 0; i < dt.types.length; i++) {
+      if (dt.types[i] === 'Files') return true;
+    }
+    return false;
+  }
+
+  function showDropOverlay() { if (els.dropOverlay) els.dropOverlay.hidden = false; }
+  function hideDropOverlay() { if (els.dropOverlay) els.dropOverlay.hidden = true; }
+
+  function onDragEnter(e) {
+    if (!dtHasFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragDepth += 1;
+    showDropOverlay();
+  }
+  function onDragOver(e) {
+    if (!dtHasFiles(e.dataTransfer)) return;
+    e.preventDefault();  // required so the 'drop' event fires
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (err) { /* ignore */ }
+  }
+  function onDragLeave(e) {
+    if (!dtHasFiles(e.dataTransfer)) return;
+    dragDepth -= 1;
+    if (dragDepth <= 0) { dragDepth = 0; hideDropOverlay(); }
+  }
+
+  async function onDrop(e) {
+    e.preventDefault();
+    dragDepth = 0;
+    hideDropOverlay();
+    const dt = e.dataTransfer;
+    if (!dt) return;
+
+    // Snapshot synchronously — DataTransfer is only live during the event.
+    const files = dt.files ? [].slice.call(dt.files) : [];
+    const items = dt.items
+      ? [].slice.call(dt.items).filter(function (it) { return it.kind === 'file'; })
+      : [];
+    const mdFiles = files.filter(function (f) { return isMarkdownName(f.name); });
+
+    if (!files.length && !items.length) return;
+    if (!mdFiles.length) {
+      toast('Only markdown files (.md, .markdown, .mdown, .mkd) can be opened.', 'warning');
+      return;
+    }
+    if (state.isDirty) {
+      const ok = confirm('You have unsaved changes. Open the dropped file and lose them?');
+      if (!ok) return;
+    }
+
+    const firstName = mdFiles[0].name;
+    let opened = false;
+
+    // Preferred path: get a FileSystemFileHandle so save-in-place still works.
+    // getAsFile()/getAsFileSystemHandle() are called before any await so the
+    // DataTransferItem is still live.
+    if (hasFSAccess && items.length && typeof items[0].getAsFileSystemHandle === 'function') {
+      for (let i = 0; i < items.length; i++) {
+        const f = items[i].getAsFile && items[i].getAsFile();
+        if (!f || !isMarkdownName(f.name)) continue;
+        const handlePromise = items[i].getAsFileSystemHandle();
+        try {
+          const handle = await handlePromise;
+          if (handle && handle.kind === 'file') {
+            state.fileHandle = handle;
+            await loadFromHandle();
+            opened = true;
+          }
+        } catch (err) {
+          /* fall through to read-only path */
+        }
+        break;
+      }
+    }
+
+    if (!opened) {
+      const f = mdFiles[0];
+      state.fileHandle = null;
+      state.fileName = f.name;
+      state.fileSize = f.size;
+      try {
+        const text = await f.text();
+        onContentLoaded(text);
+        if (!hasFSAccess) {
+          toast('Read-only mode: file open works, save needs a Chromium browser.', 'warning');
+        }
+      } catch (err) {
+        toast('Could not read dropped file: ' + (err.message || err), 'danger');
+        return;
+      }
+    }
+
+    if (mdFiles.length > 1 || files.length > 1) {
+      toast('Opened "' + firstName + '" — one file opens at a time.', 'info');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Split-view sync scroll (Feature 3, v1.2)
+  // ---------------------------------------------------------------------
+
+  // Scroll-percentage mapping with a re-entrancy guard so a programmatic scroll
+  // on one pane does not bounce back through the other pane's handler.
+  function syncScroll(srcEl, dstEl) {
+    if (state.view !== 'split') return;  // no-op outside Split
+    if (isSyncing || !srcEl || !dstEl) return;
+    isSyncing = true;
+    const sMax = srcEl.scrollHeight - srcEl.clientHeight;
+    const ratio = sMax > 0 ? (srcEl.scrollTop / sMax) : 0;
+    const dMax = dstEl.scrollHeight - dstEl.clientHeight;
+    dstEl.scrollTop = ratio * dMax;
+    requestAnimationFrame(function () { isSyncing = false; });
+  }
+
+  // ---------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------
 
@@ -1097,6 +1533,21 @@
         requestAnimationFrame(function () { spyTick = false; updateScrollspy(); });
       });
     }
+
+    // In-pane navigation for footnote jump / back-reference links.
+    if (els.preview) els.preview.addEventListener('click', onPreviewAnchorClick);
+
+    // Split-view sync scroll: each pane drives the other (guarded re-entrancy).
+    if (els.source && previewScroll) {
+      els.source.addEventListener('scroll', function () { syncScroll(els.source, previewScroll); });
+      previewScroll.addEventListener('scroll', function () { syncScroll(previewScroll, els.source); });
+    }
+
+    // Drag-and-drop open (additive to the Open File button).
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
 
     document.addEventListener('keydown', onKeyDown);
 
