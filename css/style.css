@@ -321,6 +321,140 @@ html, body {
   font-size: 12.5px;
 }
 
+/* v1.3: Recent files list on the landing card */
+.recent {
+  margin: 24px 0 0;
+  text-align: left;
+  border-top: 1px solid var(--bwb-border-subtle);
+  padding-top: 16px;
+}
+.recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.recent-label {
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.recent-clear {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--bwb-text-muted);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+}
+.recent-clear:hover { color: var(--accent); }
+.recent-clear:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.recent-list { list-style: none; margin: 0; padding: 0; }
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+.recent-open {
+  appearance: none;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bwb-text-secondary);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.recent-open:hover { background: var(--reader-card-input); color: var(--accent); }
+.recent-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.recent-icon { width: 15px; height: 15px; color: var(--accent); flex: 0 0 15px; }
+.recent-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-remove {
+  appearance: none;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  padding: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--bwb-text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms ease, color 80ms ease;
+}
+.recent-item:hover .recent-remove,
+.recent-remove:focus-visible { opacity: 1; }
+.recent-remove:hover { color: var(--bwb-status-danger); }
+.recent-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.recent-remove svg { width: 14px; height: 14px; }
+@media (hover: none) { .recent-remove { opacity: 1; } }
+
+/* v1.3: "file changed on disk" banner (dirty-buffer case; clean reloads silently) */
+.changed-bar {
+  position: fixed;
+  bottom: calc(var(--footer-h) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 90vw;
+  padding: 10px 14px 10px 18px;
+  background: var(--bwb-text-primary);
+  color: var(--bwb-text-inverse);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--bwb-status-warning);
+  box-shadow: 0 4px 16px rgba(15, 26, 46, 0.25);
+  font-size: 13px;
+}
+.changed-actions { display: inline-flex; gap: 8px; flex: 0 0 auto; }
+.changed-btn {
+  appearance: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.changed-reload {
+  background: var(--accent);
+  color: var(--bwb-text-inverse);
+  border-color: var(--accent);
+}
+.changed-reload:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.changed-dismiss {
+  background: transparent;
+  color: var(--bwb-text-inverse);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.changed-dismiss:hover { border-color: rgba(255, 255, 255, 0.7); }
+.changed-btn:focus-visible { outline: 2px solid var(--bwb-text-inverse); outline-offset: 2px; }
+
 /* Panes */
 
 .pane {

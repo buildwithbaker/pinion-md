@@ -1,6 +1,6 @@
 # Pinion.md — Architecture Reference
 
-Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.2).
+Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.3).
 
 ---
 
@@ -51,7 +51,7 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker — CACHE_NAME 'pinion-md-v9', ASSETS precache list
+  sw.js                   service worker — CACHE_NAME 'pinion-md-v10', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope "./", theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
   robots.txt              allow-all + sitemap reference
@@ -108,6 +108,9 @@ pinion-md/
   - *Footnotes* (`processFootnotes`): two small inline marked extensions tag `[^x]` refs as `<sup class="fn-ref" data-fn>` and `[^x]:` defs as `<div class="fn-def" data-fn>` — no ids in the markup, so DOMPurify is untouched. The post-render `processFootnotes()` numbers footnotes in reference order, moves the (already-sanitized) definition nodes into a bottom `<section class="footnotes">` (a `div` title, **not** a heading, so it stays out of the TOC), and wires jump + back-reference (`↩`) links with ids assigned here (like `decorateHeadings`). Multiple refs to one note share its number and get numbered back-refs; an orphan ref degrades to plain `[^label]` text; unreferenced/duplicate defs leave no stray markup.
 - **Drag-and-drop open** (`onDrop` + `dragenter`/`dragover`/`dragleave`): window-level listeners show an indigo dashed `#js-drop-overlay` while a file hovers (depth-counted so nested dragleave doesn't flicker). On drop, the `DataTransfer` is snapshotted synchronously (it goes dead after the first `await`); if FSAA + `getAsFileSystemHandle()` are available it obtains a `FileSystemFileHandle` so save-in-place still works, else it falls back to `dataTransfer.files[0]` (read-only). Only markdown extensions are accepted; non-markdown is toasted and ignored; multiple files open the first and toast; unsaved changes prompt first.
   - *Sync scroll* (`syncScroll`): in Split only, each pane's `scroll` drives the other by scroll-percentage (`scrollTop / (scrollHeight - clientHeight)`), guarded by an `isSyncing` flag (cleared on the next animation frame) so the programmatic scroll doesn't feed back.
+- **v1.3 features** — file-lifecycle, not render-pipeline:
+  - *Recent files* (`addRecent`/`renderRecent`/`openFromRecent`): `FileSystemFileHandle`s are structured-cloneable, so they are persisted in **IndexedDB** (`pinion-md` db, `kv` store, key `recent`; localStorage can't hold handles). `loadFromHandle()` records each opened handle (deduped by `handle.isSameEntry`, capped at 8, most-recent-first). The landing page shows the list; clicking re-grants disk permission via `ensureReadPermission()` (`queryPermission` → `requestPermission`, which needs the click gesture) then routes through `loadFromHandle()`. A missing file (`NotFoundError`) is toasted and dropped from the list. Recent files are FSAA-only (`recentSupported`); the read-only fallback path stores nothing.
+  - *Auto-reload on disk change* (`startPolling`/`pollTick`): while a handle is open, an interval (`POLL_MS` = 2500) re-reads `getFile().lastModified` and compares to `state.lastModified`. Polling **pauses when the tab is hidden** (and runs once immediately on `visibilitychange` back to visible); overlapping reads are guarded by `pollInFlight`. On a detected change: a **clean** buffer reloads silently (toast), a **dirty** buffer never clobbers — it advances `state.lastModified` (so it alerts once per distinct change) and shows the non-blocking `#js-changed-bar` (Reload & discard / Keep editing). `saveFile()` refreshes `state.lastModified` after its own write so it isn't mistaken for an external change; permission loss / file removal mid-session stops polling quietly.
 - **`updateStats()`** — line count, KB size, word count, read time (`ceil(words/200)`, min 1).
 - **`setView(view)`** — swaps the active pane(s) and the segmented-control active state.
 - **File ops** — `openFile()` (FSAA `showOpenFilePicker`), `openFileFallback()` (`<input type=file>` for non-FSAA browsers — read-only), `loadFromHandle()`, `saveFile()` (`createWritable()`), `reloadFile()` (re-reads from disk, confirms if dirty).
