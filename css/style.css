@@ -48,6 +48,82 @@
   --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --card-shadow: 0 0 0 1px var(--accent);
+
+  /* v1.6 dark palette — single source of dark color VALUES. The two dark
+   * triggers below only REMAP the live tokens to these, so values never drift.
+   * Indigo-only holds: the accent lifts to #7FA0E8 (BwB dark-mode accent), no
+   * second hue. Near-black indigo-tinted ramp, never pure #000/#fff. */
+  --dk-surface:        #11151C;
+  --dk-card:           #171C26;
+  --dk-card-input:     #1F2632;
+  --dk-text-primary:   #E7EBF2;
+  --dk-text-secondary: #AEB7C6;
+  --dk-text-muted:     #8A93A4;
+  --dk-text-inverse:   #0F1A2E;   /* dark text reads better on the lifted indigo */
+  --dk-border-subtle:  #2A3340;
+  --dk-border-strong:  #3A4555;
+  --dk-accent:         #7FA0E8;
+  --dk-accent-hover:   #9DB6EF;
+  --dk-accent-soft:    #21304A;
+  --dk-surface-base:   #0D1118;
+  --dk-surface-elev:   #171C26;
+  --dk-success:        #4CAF82;
+  --dk-warning:        #D6A93E;
+  --dk-danger:         #E06B6B;
+  --dk-info:           #6B9BD6;
+}
+
+/* v1.6 Dark mode. JS sets data-theme to the RESOLVED appearance, so the forced
+ * selector covers both explicit-dark and system-dark once JS runs; the @media
+ * block gives system-preferring users the right theme pre-JS (zero flash). The
+ * remap is duplicated but references --dk-* so the actual values live once. */
+html[data-theme="dark"] {
+  --bwb-brand-primary:  var(--dk-accent);
+  --bwb-brand-primary-hover: var(--dk-accent-hover);
+  --bwb-brand-primary-soft:  var(--dk-accent-soft);
+  --bwb-surface-base:   var(--dk-surface-base);
+  --bwb-surface-elevated: var(--dk-surface-elev);
+  --bwb-border-subtle:  var(--dk-border-subtle);
+  --bwb-border-strong:  var(--dk-border-strong);
+  --bwb-text-primary:   var(--dk-text-primary);
+  --bwb-text-secondary: var(--dk-text-secondary);
+  --bwb-text-muted:     var(--dk-text-muted);
+  --bwb-text-inverse:   var(--dk-text-inverse);
+  --bwb-status-success: var(--dk-success);
+  --bwb-status-warning: var(--dk-warning);
+  --bwb-status-danger:  var(--dk-danger);
+  --bwb-status-info:    var(--dk-info);
+  --accent:             var(--dk-accent);
+  --accent-hover:       var(--dk-accent-hover);
+  --accent-soft:        var(--dk-accent-soft);
+  --reader-surface:     var(--dk-surface);
+  --reader-card:        var(--dk-card);
+  --reader-card-input:  var(--dk-card-input);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bwb-brand-primary:  var(--dk-accent);
+    --bwb-brand-primary-hover: var(--dk-accent-hover);
+    --bwb-brand-primary-soft:  var(--dk-accent-soft);
+    --bwb-surface-base:   var(--dk-surface-base);
+    --bwb-surface-elevated: var(--dk-surface-elev);
+    --bwb-border-subtle:  var(--dk-border-subtle);
+    --bwb-border-strong:  var(--dk-border-strong);
+    --bwb-text-primary:   var(--dk-text-primary);
+    --bwb-text-secondary: var(--dk-text-secondary);
+    --bwb-text-muted:     var(--dk-text-muted);
+    --bwb-text-inverse:   var(--dk-text-inverse);
+    --bwb-status-success: var(--dk-success);
+    --bwb-status-warning: var(--dk-warning);
+    --bwb-status-danger:  var(--dk-danger);
+    --bwb-status-info:    var(--dk-info);
+    --accent:             var(--dk-accent);
+    --accent-hover:       var(--dk-accent-hover);
+    --accent-soft:        var(--dk-accent-soft);
+    --reader-surface:     var(--dk-surface);
+    --reader-card:        var(--dk-card);
+    --reader-card-input:  var(--dk-card-input);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -214,6 +290,19 @@ html, body {
   color: var(--accent-hover);
   border-color: var(--accent-hover);
 }
+
+/* v1.6 icon-only ghost button (theme toggle): square, just the glyph. */
+.btn-icon {
+  padding: 6px;
+  width: 32px;
+  justify-content: center;
+}
+.btn-icon .theme-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon .icon { width: 16px; height: 16px; }
 
 /* Body: view-mode driven layout */
 

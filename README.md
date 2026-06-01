@@ -17,6 +17,8 @@ A clean, fast markdown reader and writer for the web. Point it at a `.md` file o
 - In-document find (`Ctrl + F`) with match count and next/previous cycling
 - YAML frontmatter rendered as a clean metadata card instead of a stray table
 - Export the rendered document to a self-contained `.html` file
+- Presentation mode: split on `---` into a fullscreen slide deck (`Ctrl + P`)
+- Dark mode with a Light / Dark / System theme toggle (System follows your OS)
 - Installable PWA. Works offline after first load.
 
 ## Keyboard shortcuts

@@ -5,7 +5,7 @@
  * Bump CACHE_NAME (v1 -> v2 etc.) any time ASSETS change so old caches drop.
  */
 
-const CACHE_NAME = 'pinion-md-v12';
+const CACHE_NAME = 'pinion-md-v13';
 
 const ASSETS = [
   './',

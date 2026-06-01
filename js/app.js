@@ -82,6 +82,9 @@
     presentPrev:    $('js-present-prev'),
     presentNext:    $('js-present-next'),
     presentClose:   $('js-present-close'),
+    themeBtn:       $('js-theme-btn'),
+    themeIco:       $('js-theme-ico'),
+    themeColorMeta: $('js-theme-color'),
   };
 
   // The element that actually scrolls inside the preview pane. TOC links and
@@ -496,21 +499,42 @@
   // Mermaid diagrams (async post-render pass, Feature 1)
   // ---------------------------------------------------------------------
 
-  // Indigo-only theme variables — no bright default Mermaid colors.
-  const MERMAID_THEME_VARS = {
-    primaryColor: '#EEF0F3',        // ~ --reader-card
-    primaryBorderColor: '#2B4A8B',  // ~ --accent
-    primaryTextColor: '#0F1A2E',    // ~ --bwb-text-primary
-    lineColor: '#5C7EC5',           // indigo-light
-    secondaryColor: '#E5E7EB',      // ~ --reader-surface
-    tertiaryColor: '#F5F6F8',       // ~ --reader-card-input
-    secondaryBorderColor: '#2B4A8B',
-    tertiaryBorderColor: '#5C7EC5',
-    noteBkgColor: '#E8EDF7',        // ~ --accent-soft
-    noteBorderColor: '#2B4A8B',
-    noteTextColor: '#0F1A2E',
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
-  };
+  // Indigo-only Mermaid theme variables, computed per effective appearance.
+  // Mermaid's theme is JS-set (CSS tokens can't reach it), so dark mode needs an
+  // explicit variable swap + re-init + re-render (see applyTheme). Light keeps
+  // the original v1.2 palette; dark uses the dark ramp + lifted indigo #7FA0E8.
+  function mermaidThemeVars() {
+    if (isDark()) {
+      return {
+        primaryColor: '#171C26',        // ~ dark --reader-card
+        primaryBorderColor: '#7FA0E8',  // lifted indigo accent
+        primaryTextColor: '#E7EBF2',    // dark --bwb-text-primary
+        lineColor: '#7FA0E8',
+        secondaryColor: '#11151C',      // ~ dark --reader-surface
+        tertiaryColor: '#1F2632',       // ~ dark --reader-card-input
+        secondaryBorderColor: '#7FA0E8',
+        tertiaryBorderColor: '#9DB6EF',
+        noteBkgColor: '#21304A',        // ~ dark --accent-soft
+        noteBorderColor: '#7FA0E8',
+        noteTextColor: '#E7EBF2',
+        fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
+      };
+    }
+    return {
+      primaryColor: '#EEF0F3',        // ~ --reader-card
+      primaryBorderColor: '#2B4A8B',  // ~ --accent
+      primaryTextColor: '#0F1A2E',    // ~ --bwb-text-primary
+      lineColor: '#5C7EC5',           // indigo-light
+      secondaryColor: '#E5E7EB',      // ~ --reader-surface
+      tertiaryColor: '#F5F6F8',       // ~ --reader-card-input
+      secondaryBorderColor: '#2B4A8B',
+      tertiaryBorderColor: '#5C7EC5',
+      noteBkgColor: '#E8EDF7',        // ~ --accent-soft
+      noteBorderColor: '#2B4A8B',
+      noteTextColor: '#0F1A2E',
+      fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
+    };
+  }
 
   function initMermaid() {
     if (mermaidReady || !window.mermaid) return;
@@ -523,12 +547,20 @@
         theme: 'base',
         htmlLabels: false,                                  // avoid foreignObject
         flowchart: { htmlLabels: false, useMaxWidth: true },
-        themeVariables: MERMAID_THEME_VARS,
+        themeVariables: mermaidThemeVars(),
       });
       mermaidReady = true;
     } catch (e) {
       // On init failure diagrams simply remain as code blocks.
     }
+  }
+
+  // Re-initialize Mermaid with the current appearance's variables. Used on theme
+  // switch; flips mermaidReady so the next render re-inits with fresh colors.
+  function reinitMermaid() {
+    if (!window.mermaid) return;
+    mermaidReady = false;
+    initMermaid();
   }
 
   // Debounced trigger. Always bumps renderToken so a stale in-flight pass can
@@ -2223,10 +2255,115 @@
   }
 
   // ---------------------------------------------------------------------
+  // Theme: Light / Dark / System (v1.6)
+  // ---------------------------------------------------------------------
+  //
+  // Preference is one of 'light' | 'dark' | 'system', persisted in localStorage
+  // (a synchronous one-key read — right tool for a scalar even though recent
+  // files use IndexedDB; avoids an async flash on load). The RESOLVED appearance
+  // is written to <html data-theme="light|dark"> so CSS remaps the tokens.
+  //
+  // FOUC/CSP tradeoff: strict CSP forbids the usual inline head-script that would
+  // set the theme before first paint. Mitigation — the CSS @media block gives
+  // system-preference users the correct theme with zero JS (no flash); only a
+  // user who picked an explicit override *differing* from their OS may see a
+  // brief flash before app.js runs. Accepted rather than weakening CSP.
+
+  const THEME_KEY = 'pinion-theme';
+  let themePref = 'system';
+  const darkMql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+  function systemPrefersDark() { return !!(darkMql && darkMql.matches); }
+
+  function isDark() {
+    if (themePref === 'dark') return true;
+    if (themePref === 'light') return false;
+    return systemPrefersDark();
+  }
+
+  function loadThemePref() {
+    try {
+      const v = localStorage.getItem(THEME_KEY);
+      if (v === 'light' || v === 'dark' || v === 'system') themePref = v;
+    } catch (e) { /* storage blocked — default 'system' */ }
+  }
+
+  function saveThemePref() {
+    try { localStorage.setItem(THEME_KEY, themePref); } catch (e) { /* ignore */ }
+  }
+
+  // Resolve and apply: set data-theme to the concrete appearance so both the
+  // forced selector and (for system) a consistent attribute are in play, refresh
+  // the toggle UI, sync the mobile theme-color meta, and re-theme Mermaid.
+  function applyTheme(rerenderDiagrams) {
+    const dark = isDark();
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    updateThemeButton();
+    updateThemeColorMeta(dark);
+    if (window.mermaid) {
+      reinitMermaid();
+      // Rebuild the preview so existing diagrams re-render with new colors.
+      if (rerenderDiagrams && state.view !== 'landing' && els.preview &&
+          els.preview.querySelector('.mermaid-diagram, pre[data-lang="mermaid"]')) {
+        renderPreview();
+      }
+    }
+  }
+
+  const ICON_SUN =
+    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+  const ICON_MOON =
+    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  const ICON_MONITOR =
+    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+
+  function updateThemeButton() {
+    if (!els.themeBtn) return;
+    let ico, label;
+    if (themePref === 'light') { ico = ICON_SUN; label = 'Theme: Light'; }
+    else if (themePref === 'dark') { ico = ICON_MOON; label = 'Theme: Dark'; }
+    else { ico = ICON_MONITOR; label = 'Theme: System'; }
+    if (els.themeIco) els.themeIco.innerHTML = ico;
+    els.themeBtn.setAttribute('aria-label', label);
+    els.themeBtn.setAttribute('title', label);
+  }
+
+  // Mobile browser UI / PWA title-bar color tracks the active chrome surface.
+  function updateThemeColorMeta(dark) {
+    if (!els.themeColorMeta) return;
+    els.themeColorMeta.setAttribute('content', dark ? '#11151C' : '#2B4A8B');
+  }
+
+  // Cycle Light -> Dark -> System -> Light.
+  function cycleTheme() {
+    themePref = themePref === 'light' ? 'dark'
+              : themePref === 'dark' ? 'system'
+              : 'light';
+    saveThemePref();
+    applyTheme(true);
+    const word = themePref.charAt(0).toUpperCase() + themePref.slice(1);
+    toast('Theme: ' + word, 'info');
+  }
+
+  // ---------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------
 
   function init() {
+    // Apply the saved theme as early as possible to minimize FOUC (v1.6).
+    loadThemePref();
+    applyTheme(false);
+    if (els.themeBtn) els.themeBtn.addEventListener('click', cycleTheme);
+    // Follow the OS live while in 'system' mode.
+    if (darkMql) {
+      const onSysChange = function () { if (themePref === 'system') applyTheme(true); };
+      if (darkMql.addEventListener) darkMql.addEventListener('change', onSysChange);
+      else if (darkMql.addListener) darkMql.addListener(onSysChange);
+    }
+
     if (!hasFSAccess) {
       els.unsupported.hidden = false;
     }
