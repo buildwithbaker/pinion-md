@@ -1,6 +1,6 @@
 # Pinion.md — Architecture Reference
 
-Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.3).
+Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.4).
 
 ---
 
@@ -23,6 +23,9 @@ What it does:
 - **In-document find** (`Ctrl+F`) with match count + next/prev cycling
 - **YAML frontmatter** rendered as a metadata card (stripped from the body)
 - **HTML export** to a single self-contained `.html` file
+- **Mermaid diagrams**, **footnotes**, **drag-and-drop open**, **Split sync-scroll** (v1.2)
+- **Recent files** (IndexedDB handle persistence) + **auto-reload on disk change** (v1.3)
+- **Heading anchor links**, **image lightbox**, **emoji shortcodes**, **per-file scroll memory** (v1.4)
 - Installable PWA, fully offline after first load
 
 ---
@@ -51,7 +54,7 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker — CACHE_NAME 'pinion-md-v10', ASSETS precache list
+  sw.js                   service worker — CACHE_NAME 'pinion-md-v11', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope "./", theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
   robots.txt              allow-all + sitemap reference
@@ -111,6 +114,11 @@ pinion-md/
 - **v1.3 features** — file-lifecycle, not render-pipeline:
   - *Recent files* (`addRecent`/`renderRecent`/`openFromRecent`): `FileSystemFileHandle`s are structured-cloneable, so they are persisted in **IndexedDB** (`pinion-md` db, `kv` store, key `recent`; localStorage can't hold handles). `loadFromHandle()` records each opened handle (deduped by `handle.isSameEntry`, capped at 8, most-recent-first). The landing page shows the list; clicking re-grants disk permission via `ensureReadPermission()` (`queryPermission` → `requestPermission`, which needs the click gesture) then routes through `loadFromHandle()`. A missing file (`NotFoundError`) is toasted and dropped from the list. Recent files are FSAA-only (`recentSupported`); the read-only fallback path stores nothing.
   - *Auto-reload on disk change* (`startPolling`/`pollTick`): while a handle is open, an interval (`POLL_MS` = 2500) re-reads `getFile().lastModified` and compares to `state.lastModified`. Polling **pauses when the tab is hidden** (and runs once immediately on `visibilitychange` back to visible); overlapping reads are guarded by `pollInFlight`. On a detected change: a **clean** buffer reloads silently (toast), a **dirty** buffer never clobbers — it advances `state.lastModified` (so it alerts once per distinct change) and shows the non-blocking `#js-changed-bar` (Reload & discard / Keep editing). `saveFile()` refreshes `state.lastModified` after its own write so it isn't mistaken for an external change; permission loss / file removal mid-session stops polling quietly.
+- **v1.4 features** — small polish, all CSP-safe (DOM-built, no inline markup/styles):
+  - *Emoji shortcodes* (`renderEmoji`): the **first** post-render pass (before code/heading/image passes and before search highlighting). A static `EMOJI` map (no library) drives a text-node walk that replaces `:code:` with the Unicode character, **skipping `code`/`pre`/`.mermaid-diagram`/`.pre-tools`** so colon-bearing code is untouched. Unknown codes are left verbatim. Emoji are plain text → automatically sanitize-safe, export-safe (content), and invisible to the later search walk.
+  - *Heading anchor links* (`decorateHeadingAnchors`, runs right after `decorateHeadings`): appends a hover-revealed `<a class="heading-anchor">` (Lucide link icon) to each slugged heading; the heading gets `.has-anchor` (relative) and the anchor is absolutely positioned in the left gutter so revealing it never shifts layout. Click → `scrollPreviewTo` the heading **and** copy a clean deep link (`location.href` minus any hash, plus `#slug`) via `navigator.clipboard` with a `toast`. It is chrome: `exportHtml` strips `.heading-anchor`; it carries no text so TOC/search/copy are unaffected (slugs are computed in the earlier `decorateHeadings` pass, before the anchor exists).
+  - *Image lightbox* (`decorateImages`, runs after the heading passes): tags each body `<img>` (excluding `.fm-card` images; Mermaid is SVG, not `<img>`) with `.zoomable` (zoom-in cursor) and a click handler. The single reusable `#js-lightbox` overlay (`role="dialog" aria-modal="true"`, in `index.html`, outside the preview) shows the image on a dimmed indigo backdrop; opens with focus on the close button, closes on backdrop click / `×` / `Esc` (handled in `onKeyDown` ahead of the find bar) and returns focus to the triggering image. Because it lives outside `#js-preview` it is never in the export clone / search / copy output.
+  - *Per-file scroll memory* (`scheduleSaveScroll`/`saveScrollNow`/`restoreScroll`): reuses the **v1.3 IndexedDB store** (`kv` store, key `scroll`) — an array of `{key, p, s}` (preview + source `scrollTop`), most-recent-first, deduped by `key` and capped at `SCROLL_MAX` = 40. `key` is `fileName::fileSize`. Saves are **debounced 400 ms** on either pane's scroll; `restoreScroll()` runs ~60 ms after `onContentLoaded` → `renderPreview`, clamps each offset to the pane's current max (handles a now-shorter doc), defaults to top when unseen, and is guarded by `restoringScroll` + `isSyncing` so it fights neither the save debounce nor Split sync-scroll. `clearRecent()` also empties the scroll store so it can't outlive the recent list.
 - **`updateStats()`** — line count, KB size, word count, read time (`ceil(words/200)`, min 1).
 - **`setView(view)`** — swaps the active pane(s) and the segmented-control active state.
 - **File ops** — `openFile()` (FSAA `showOpenFilePicker`), `openFileFallback()` (`<input type=file>` for non-FSAA browsers — read-only), `loadFromHandle()`, `saveFile()` (`createWritable()`), `reloadFile()` (re-reads from disk, confirms if dirty).
