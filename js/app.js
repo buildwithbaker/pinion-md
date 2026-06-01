@@ -75,6 +75,13 @@
     lightbox:       $('js-lightbox'),
     lightboxImg:    $('js-lightbox-img'),
     lightboxClose:  $('js-lightbox-close'),
+    presentBtn:     $('js-present-btn'),
+    present:        $('js-present'),
+    presentStage:   $('js-present-stage'),
+    presentCounter: $('js-present-counter'),
+    presentPrev:    $('js-present-prev'),
+    presentNext:    $('js-present-next'),
+    presentClose:   $('js-present-close'),
   };
 
   // The element that actually scrolls inside the preview pane. TOC links and
@@ -115,6 +122,13 @@
 
   // Image lightbox (v1.4): element that opened it, for focus return.
   let lightboxTrigger = null;
+
+  // Presentation mode (v1.5): a transient fullscreen overlay, NOT a state.view
+  // value — the underlying preview/edit/split view is untouched and restored on
+  // exit. Slides are built from the already-sanitized preview DOM on enter.
+  let presenting = false;
+  let slides = [];
+  let slideIdx = 0;
 
   // Scroll-position memory (v1.4): debounce handle + restore guard.
   let scrollSaveTimer = null;
@@ -1405,6 +1419,151 @@
   }
 
   // ---------------------------------------------------------------------
+  // Presentation mode (v1.5) — transient fullscreen overlay
+  // ---------------------------------------------------------------------
+
+  function canPresent() {
+    return state.view !== 'landing' && !!(state.content && state.content.length);
+  }
+
+  // Make sure any pending Mermaid diagrams in the source preview are rendered to
+  // SVG BEFORE we clone the DOM into slides — otherwise a diagram that lands on
+  // a later slide would clone as a bare code block. Mermaid CSS lives in the
+  // document-wide adopted stylesheet, so the cloned SVGs are styled in the deck.
+  async function ensureMermaidRendered() {
+    if (!window.mermaid) return;
+    if (!els.preview.querySelector('pre[data-lang="mermaid"]')) return;
+    renderToken += 1;
+    try { await renderMermaid(renderToken); } catch (e) { /* leave as code block */ }
+  }
+
+  // Build slides by walking the already-sanitized preview DOM and splitting at
+  // top-level <hr> separators. Frontmatter '---' is already stripped before
+  // render, so there is no phantom leading slide. Nested <hr> (inside a list or
+  // blockquote) is not a direct child here, so it never splits.
+  function buildSlides() {
+    const clone = els.preview.cloneNode(true);
+    // Strip chrome that must never appear on slides.
+    clone.querySelectorAll('.pre-tools').forEach(function (n) { n.remove(); });
+    clone.querySelectorAll('.heading-anchor').forEach(function (n) { n.remove(); });
+    clone.querySelectorAll('.mermaid-error').forEach(function (n) { n.remove(); });
+    clone.querySelectorAll('mark.search-hit').forEach(function (m) {
+      m.replaceWith(document.createTextNode(m.textContent));
+    });
+
+    const result = [];
+    let content = null;
+    const startSlide = function () {
+      const slide = document.createElement('div');
+      slide.className = 'slide';
+      content = document.createElement('div');
+      content.className = 'slide-content preview-content';
+      slide.appendChild(content);
+      result.push(slide);
+    };
+    startSlide();
+
+    const nodes = [].slice.call(clone.childNodes);
+    nodes.forEach(function (node) {
+      if (node.nodeType === 1 && node.tagName === 'HR') {
+        startSlide();  // top-level separator -> begin a new slide
+      } else {
+        content.appendChild(node);
+      }
+    });
+
+    // Drop empty slides (e.g. consecutive separators) but keep media-only ones.
+    return result.filter(function (s) {
+      const c = s.firstChild;
+      if (!c) return false;
+      return (c.textContent && c.textContent.trim() !== '') ||
+        c.querySelector('img, svg, pre, table');
+    });
+  }
+
+  async function enterPresent() {
+    if (presenting || !canPresent() || !els.present) return;
+    // Presenting is its own modal surface — close the other overlays/chrome.
+    closeSearch();
+    setTocOpen(false);
+    closeLightbox();
+
+    await ensureMermaidRendered();
+
+    slides = buildSlides();
+    if (!slides.length) {
+      const blank = document.createElement('div');
+      blank.className = 'slide';
+      blank.appendChild(document.createElement('div')).className = 'slide-content preview-content';
+      slides = [blank];
+    }
+
+    els.presentStage.textContent = '';
+    slides.forEach(function (s) { els.presentStage.appendChild(s); });
+
+    presenting = true;
+    els.present.hidden = false;
+    showSlide(0);
+
+    // Standard Fullscreen API; gracefully fall back to the maximized in-page
+    // overlay (already full-viewport via CSS) if it rejects or is unsupported.
+    if (els.present.requestFullscreen) {
+      els.present.requestFullscreen().catch(function () { /* in-page overlay */ });
+    }
+    if (els.presentClose) els.presentClose.focus();
+  }
+
+  function exitPresent() {
+    if (!presenting) return;
+    presenting = false;
+    els.present.hidden = true;
+    els.presentStage.textContent = '';
+    slides = [];
+    slideIdx = 0;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(function () { /* ignore */ });
+    }
+    // Return focus to the Present button in the prior (still-intact) view.
+    if (els.presentBtn && !els.presentBtn.hidden) els.presentBtn.focus();
+  }
+
+  function showSlide(i) {
+    if (!slides.length) return;
+    if (i < 0) i = 0;
+    if (i >= slides.length) i = slides.length - 1;  // clamp at ends (no wrap)
+    slideIdx = i;
+    slides.forEach(function (s, idx) { s.classList.toggle('active', idx === i); });
+    if (els.presentCounter) {
+      els.presentCounter.textContent = (i + 1) + ' / ' + slides.length;
+    }
+    slides[i].scrollTop = 0;
+  }
+
+  function nextSlide() { showSlide(slideIdx + 1); }
+  function prevSlide() { showSlide(slideIdx - 1); }
+
+  function onPresentKey(e) {
+    const k = e.key;
+    if (k === 'Escape') { e.preventDefault(); exitPresent(); }
+    else if (k === 'ArrowRight' || k === 'ArrowDown' || k === ' ' ||
+             k === 'Spacebar' || k === 'PageDown') { e.preventDefault(); nextSlide(); }
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') { e.preventDefault(); prevSlide(); }
+    else if (k === 'Home') { e.preventDefault(); showSlide(0); }
+    else if (k === 'End') { e.preventDefault(); showSlide(slides.length - 1); }
+  }
+
+  // Click anywhere on the slide stage advances — but not on links or controls.
+  function onStageClick(e) {
+    if (e.target.closest && e.target.closest('a, button')) return;
+    nextSlide();
+  }
+
+  // Leaving fullscreen via the browser's own Esc / F11 must also exit cleanly.
+  function onFullscreenChange() {
+    if (presenting && !document.fullscreenElement) exitPresent();
+  }
+
+  // ---------------------------------------------------------------------
   // View mode
   // ---------------------------------------------------------------------
 
@@ -1418,6 +1577,7 @@
       els.seg.hidden = true;
       els.fileBadge.hidden = true;
       if (els.exportBtn) els.exportBtn.hidden = true;
+      if (els.presentBtn) els.presentBtn.hidden = true;
       if (els.tocToggle) els.tocToggle.hidden = true;
       closeSearch();
       setTocOpen(false);
@@ -1429,6 +1589,7 @@
     els.seg.hidden = false;
     els.fileBadge.hidden = false;
     if (els.exportBtn) els.exportBtn.hidden = false;
+    if (els.presentBtn) els.presentBtn.hidden = false;
     // The Contents toggle and live search only apply when the preview shows.
     refreshTocControls();
     if (!previewVisible()) closeSearch();
@@ -1887,6 +2048,9 @@
   // ---------------------------------------------------------------------
 
   function onKeyDown(e) {
+    // While presenting, the deck owns the keyboard (arrows/Space/Home/End/Esc).
+    if (presenting) { onPresentKey(e); return; }
+
     const mod = e.ctrlKey || e.metaKey;
     if (!mod) {
       if (e.key === 'Escape') {
@@ -1903,7 +2067,13 @@
     }
     const key = e.key.toLowerCase();
 
-    if (key === 'f') {
+    if (key === 'p') {
+      // Ctrl/Cmd+P enters presentation mode (overrides browser print), only
+      // when a file is open. Esc / the close button exit back to the prior view.
+      if (!canPresent()) return;
+      e.preventDefault();
+      enterPresent();
+    } else if (key === 'f') {
       // In-app find, only when there is a rendered document to search.
       if (state.view === 'landing') return;
       e.preventDefault();
@@ -2110,6 +2280,14 @@
     // Image lightbox (v1.4): close on backdrop click or the close button.
     if (els.lightbox) els.lightbox.addEventListener('click', onLightboxClick);
     if (els.lightboxClose) els.lightboxClose.addEventListener('click', closeLightbox);
+
+    // Presentation mode (v1.5): enter button + deck navigation/exit.
+    if (els.presentBtn) els.presentBtn.addEventListener('click', enterPresent);
+    if (els.presentNext) els.presentNext.addEventListener('click', nextSlide);
+    if (els.presentPrev) els.presentPrev.addEventListener('click', prevSlide);
+    if (els.presentClose) els.presentClose.addEventListener('click', exitPresent);
+    if (els.presentStage) els.presentStage.addEventListener('click', onStageClick);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
 
     // Drag-and-drop open (additive to the Open File button).
     window.addEventListener('dragenter', onDragEnter);

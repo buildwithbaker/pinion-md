@@ -1242,6 +1242,102 @@ mark.search-hit.active {
 .lightbox-close svg { width: 22px; height: 22px; }
 
 /* ===================================================================== *
+ * v1.5 — presentation mode (transient fullscreen overlay)
+ * ===================================================================== */
+
+.present-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  background: var(--reader-surface);
+  /* Larger base type for projection; scales with viewport. */
+  font-size: clamp(17px, 1.6vw, 24px);
+}
+
+.present-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Each slide stacks in the stage; only the active one shows. The slide itself
+ * is the scroll container so long slides scroll within the deck. */
+.present-stage .slide {
+  position: absolute;
+  inset: 0;
+  display: none;
+  overflow: auto;
+}
+.present-stage .slide.active { display: block; }
+
+/* Reuse the indigo .preview-content markdown styling; center a wider column and
+ * vertically center short slides while letting long ones scroll from the top. */
+.present-stage .slide-content {
+  box-sizing: border-box;
+  min-height: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 6vh 6vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.present-stage .slide-content > :first-child { margin-top: 0; }
+
+/* Bottom control bar: prev / counter / next / exit, indigo on the reader card. */
+.present-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 16px;
+  background: var(--reader-card);
+  border-top: 2px solid var(--accent);
+}
+.present-counter {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.present-nav,
+.present-close {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 80ms ease, color 80ms ease;
+}
+.present-nav:hover,
+.present-close:hover {
+  background: var(--accent);
+  color: var(--bwb-text-inverse);
+}
+.present-nav:focus-visible,
+.present-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.present-close { margin-left: 10px; }
+.present-nav svg,
+.present-close svg { width: 18px; height: 18px; }
+
+/* ===================================================================== *
  * v1.2 — Mermaid diagrams · drag-and-drop · footnotes
  * ===================================================================== */
 

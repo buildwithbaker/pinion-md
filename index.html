@@ -73,6 +73,17 @@
         Contents
       </button>
 
+      <button id="js-present-btn" class="btn btn-ghost" type="button" aria-label="Present" hidden>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 4h20"/>
+          <rect x="3" y="4" width="18" height="12" rx="1"/>
+          <path d="M12 16v4"/>
+          <path d="M9 20h6"/>
+          <path d="M10.5 8.5l3 1.8-3 1.8z" fill="currentColor"/>
+        </svg>
+        Present
+      </button>
+
       <button id="js-export" class="btn btn-ghost" type="button" aria-label="Export as HTML" hidden>
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -239,6 +250,22 @@
       </svg>
     </button>
     <img class="lightbox-img" id="js-lightbox-img" alt="">
+  </div>
+
+  <div class="present-overlay" id="js-present" role="dialog" aria-modal="true" aria-label="Presentation" hidden>
+    <div class="present-stage" id="js-present-stage"></div>
+    <div class="present-bar">
+      <button class="present-nav" id="js-present-prev" type="button" aria-label="Previous slide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="present-counter" id="js-present-counter" aria-live="polite">1 / 1</span>
+      <button class="present-nav" id="js-present-next" type="button" aria-label="Next slide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="present-close" id="js-present-close" type="button" aria-label="Exit presentation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
   </div>
 
   <script src="vendor/highlight.min.js"></script>

@@ -1,6 +1,6 @@
 # Pinion.md — Architecture Reference
 
-Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.4).
+Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.5).
 
 ---
 
@@ -26,6 +26,7 @@ What it does:
 - **Mermaid diagrams**, **footnotes**, **drag-and-drop open**, **Split sync-scroll** (v1.2)
 - **Recent files** (IndexedDB handle persistence) + **auto-reload on disk change** (v1.3)
 - **Heading anchor links**, **image lightbox**, **emoji shortcodes**, **per-file scroll memory** (v1.4)
+- **Presentation mode** — `---`-split fullscreen slide deck with keyboard navigation (v1.5)
 - Installable PWA, fully offline after first load
 
 ---
@@ -54,7 +55,7 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker — CACHE_NAME 'pinion-md-v11', ASSETS precache list
+  sw.js                   service worker — CACHE_NAME 'pinion-md-v12', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope "./", theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
   robots.txt              allow-all + sitemap reference
@@ -119,6 +120,7 @@ pinion-md/
   - *Heading anchor links* (`decorateHeadingAnchors`, runs right after `decorateHeadings`): appends a hover-revealed `<a class="heading-anchor">` (Lucide link icon) to each slugged heading; the heading gets `.has-anchor` (relative) and the anchor is absolutely positioned in the left gutter so revealing it never shifts layout. Click → `scrollPreviewTo` the heading **and** copy a clean deep link (`location.href` minus any hash, plus `#slug`) via `navigator.clipboard` with a `toast`. It is chrome: `exportHtml` strips `.heading-anchor`; it carries no text so TOC/search/copy are unaffected (slugs are computed in the earlier `decorateHeadings` pass, before the anchor exists).
   - *Image lightbox* (`decorateImages`, runs after the heading passes): tags each body `<img>` (excluding `.fm-card` images; Mermaid is SVG, not `<img>`) with `.zoomable` (zoom-in cursor) and a click handler. The single reusable `#js-lightbox` overlay (`role="dialog" aria-modal="true"`, in `index.html`, outside the preview) shows the image on a dimmed indigo backdrop; opens with focus on the close button, closes on backdrop click / `×` / `Esc` (handled in `onKeyDown` ahead of the find bar) and returns focus to the triggering image. Because it lives outside `#js-preview` it is never in the export clone / search / copy output.
   - *Per-file scroll memory* (`scheduleSaveScroll`/`saveScrollNow`/`restoreScroll`): reuses the **v1.3 IndexedDB store** (`kv` store, key `scroll`) — an array of `{key, p, s}` (preview + source `scrollTop`), most-recent-first, deduped by `key` and capped at `SCROLL_MAX` = 40. `key` is `fileName::fileSize`. Saves are **debounced 400 ms** on either pane's scroll; `restoreScroll()` runs ~60 ms after `onContentLoaded` → `renderPreview`, clamps each offset to the pane's current max (handles a now-shorter doc), defaults to top when unseen, and is guarded by `restoringScroll` + `isSyncing` so it fights neither the save debounce nor Split sync-scroll. `clearRecent()` also empties the scroll store so it can't outlive the recent list.
+- **v1.5 — presentation mode** (`enterPresent`/`exitPresent`/`buildSlides`/`showSlide`): a **transient fullscreen overlay**, NOT a `state.view` value — the underlying preview/edit/split view and the segmented control are untouched and simply revealed again on exit. Entered via the header **Present** button (shown/hidden with the same lifecycle as Export) or **`Ctrl/Cmd+P`** (overrides browser print; only when a file is open). On enter: closes search/TOC/lightbox, `await`s `ensureMermaidRendered()` so any pending `pre[data-lang="mermaid"]` becomes an SVG **before** cloning, then `buildSlides()` clones the already-sanitized `#js-preview` DOM (no second parse), strips chrome (`.pre-tools`/`.heading-anchor`/`.mermaid-error`/search `<mark>`), and splits at **top-level `<hr>`** only (direct children of the clone — nested `<hr>` in a list/blockquote never splits; leading frontmatter `---` is already stripped pre-render, so there is no phantom first slide). Each slide is a `.slide > .slide-content.preview-content` so all the indigo markdown + Mermaid styling is reused; empty slides (consecutive separators) are dropped unless media-only. The `#js-present` overlay (`role="dialog" aria-modal="true"`, in `index.html`) requests fullscreen via the standard **Fullscreen API** (graceful fallback to the full-viewport in-page overlay if it rejects). Navigation (handled by `onPresentKey`, which `onKeyDown` delegates to while `presenting`): `→`/`↓`/`Space`/`PageDown`/stage-click = next, `←`/`↑`/`PageUp` = prev, `Home`/`End` = first/last, `Esc` = exit; ends **clamp** (no wrap). A `fullscreenchange` listener exits present mode cleanly if the user leaves fullscreen via F11/browser-Esc. Present mode is chrome: never in HTML export; Mermaid diagram CSS comes from the document-wide adopted stylesheet so cloned SVGs stay styled in the deck.
 - **`updateStats()`** — line count, KB size, word count, read time (`ceil(words/200)`, min 1).
 - **`setView(view)`** — swaps the active pane(s) and the segmented-control active state.
 - **File ops** — `openFile()` (FSAA `showOpenFilePicker`), `openFileFallback()` (`<input type=file>` for non-FSAA browsers — read-only), `loadFromHandle()`, `saveFile()` (`createWritable()`), `reloadFile()` (re-reads from disk, confirms if dirty).
@@ -128,7 +130,7 @@ pinion-md/
 
 **Browser support:** file picker + save-in-place works in Chromium (Chrome, Edge, Opera; desktop + Android). Firefox/Safari fall back to read-only (`openFileFallback`); save shows a "use a supported browser" prompt.
 
-**Keyboard shortcuts:** `Ctrl+O` open · `Ctrl+F` find in document · `Ctrl+E` toggle preview/edit · `Ctrl+S` save · `Ctrl+R` reload from disk. In the find bar: `Enter`/`Shift+Enter` next/prev, `Esc` close.
+**Keyboard shortcuts:** `Ctrl+O` open · `Ctrl+F` find in document · `Ctrl+E` toggle preview/edit · `Ctrl+S` save · `Ctrl+R` reload from disk · `Ctrl+P` present. In the find bar: `Enter`/`Shift+Enter` next/prev, `Esc` close. In present mode: arrows/`Space`/`PageUp`/`PageDown`/`Home`/`End` navigate, `Esc` exits.
 
 ---
 

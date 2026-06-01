@@ -28,6 +28,9 @@ A clean, fast markdown reader and writer for the web. Point it at a `.md` file o
 | Toggle preview / edit | `Ctrl + E` |
 | Save changes | `Ctrl + S` |
 | Reload from disk | `Ctrl + R` |
+| Present (slide deck) | `Ctrl + P` |
+
+In presentation mode: `→` / `↓` / `Space` / `PageDown` / click next slide · `←` / `↑` / `PageUp` previous · `Home` / `End` first / last · `Esc` exit.
 
 Inside the find bar: `Enter` next match, `Shift + Enter` previous match, `Esc` close.
 
