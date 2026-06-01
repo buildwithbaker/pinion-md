@@ -7,7 +7,7 @@
     content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Pinion.md</title>
   <meta name="description" content="A clean, fast markdown reader and writer for the web. Open a .md file, read it rendered, or flip to edit mode. No accounts, no clutter, no upload.">
-  <meta name="theme-color" content="#2B4A8B">
+  <meta name="theme-color" content="#2B4A8B" id="js-theme-color">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -71,6 +71,10 @@
           <line x1="3" y1="18" x2="3.01" y2="18"/>
         </svg>
         Contents
+      </button>
+
+      <button id="js-theme-btn" class="btn btn-ghost btn-icon" type="button" aria-label="Theme: System">
+        <span class="theme-ico" id="js-theme-ico" aria-hidden="true"></span>
       </button>
 
       <button id="js-present-btn" class="btn btn-ghost" type="button" aria-label="Present" hidden>
