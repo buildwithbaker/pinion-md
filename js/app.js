@@ -72,6 +72,9 @@
     changedBar:     $('js-changed-bar'),
     changedReload:  $('js-changed-reload'),
     changedDismiss: $('js-changed-dismiss'),
+    lightbox:       $('js-lightbox'),
+    lightboxImg:    $('js-lightbox-img'),
+    lightboxClose:  $('js-lightbox-close'),
   };
 
   // The element that actually scrolls inside the preview pane. TOC links and
@@ -109,6 +112,13 @@
   let pollTimer = null;     // setInterval handle
   let pollInFlight = false; // guard against overlapping getFile() reads
   const POLL_MS = 2500;
+
+  // Image lightbox (v1.4): element that opened it, for focus return.
+  let lightboxTrigger = null;
+
+  // Scroll-position memory (v1.4): debounce handle + restore guard.
+  let scrollSaveTimer = null;
+  let restoringScroll = false;
 
   // PWA install prompt - captured from beforeinstallprompt and replayed when
   // the user clicks the in-app Install button. Chromium fires this event on
@@ -343,10 +353,17 @@
       }
     });
 
+    // Emoji shortcodes (v1.4): replace :code: in body text nodes with Unicode,
+    // skipping code/pre so colon-bearing code samples are untouched. Runs before
+    // search highlighting so the replaced text is what gets searched/highlighted.
+    renderEmoji();
+
     // Post-render passes over the sanitized DOM (never over raw markup).
     decorateCodeBlocks();
     processFootnotes();
     decorateHeadings();
+    decorateHeadingAnchors();  // v1.4: per-heading deep-link affordance
+    decorateImages();          // v1.4: click-to-zoom lightbox on body images
     buildToc();
 
     // Keep live search highlights in sync while editing in Split.
@@ -826,6 +843,258 @@
   }
 
   // ---------------------------------------------------------------------
+  // Heading anchor links (v1.4)
+  // ---------------------------------------------------------------------
+
+  // Lucide "link" icon, carried inline (no sprite sheet in this app).
+  const ICON_LINK =
+    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>' +
+    '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+
+  // Add a hover-revealed deep-link affordance to each heading (ids already set
+  // by decorateHeadings). Built with DOM APIs; it is chrome, stripped on export.
+  function decorateHeadingAnchors() {
+    const heads = els.preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    heads.forEach(function (h) {
+      if (!h.id || h.querySelector('.heading-anchor')) return;
+      h.classList.add('has-anchor');
+      const a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('data-anchor', h.id);
+      a.setAttribute('aria-label', 'Link to section: ' + (h.textContent || h.id));
+      a.innerHTML = ICON_LINK;
+      a.addEventListener('click', onHeadingAnchorClick);
+      h.appendChild(a);
+    });
+  }
+
+  function onHeadingAnchorClick(e) {
+    e.preventDefault();
+    const a = e.currentTarget;
+    const id = a.getAttribute('data-anchor');
+    const target = id && els.preview.querySelector('#' + cssEscape(id));
+    if (target) scrollPreviewTo(target);
+    // Copy a clean deep link (current URL minus any existing hash, plus #slug).
+    const base = location.href.replace(/#.*$/, '');
+    const deepLink = base + '#' + id;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(deepLink).then(
+        function () { toast('Link copied'); },
+        function () { toast('Could not copy link', 'warning'); }
+      );
+    } else {
+      toast('Could not copy link', 'warning');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Image lightbox (v1.4)
+  // ---------------------------------------------------------------------
+
+  // Make body <img>s click-to-zoom. Excludes frontmatter-card images and
+  // Mermaid (SVG, not <img>). The lightbox lives outside the preview, so it is
+  // never part of HTML export / search / copy output.
+  function decorateImages() {
+    const imgs = els.preview.querySelectorAll('img');
+    imgs.forEach(function (img) {
+      if (img.closest('.fm-card')) return;
+      if (img.classList.contains('zoomable')) return;
+      img.classList.add('zoomable');
+      // Make it a real control: keyboard-reachable, so focus can return here on
+      // close (images are not focusable by default). Enter/Space also open it.
+      img.setAttribute('tabindex', '0');
+      img.setAttribute('role', 'button');
+      img.setAttribute('aria-label', 'Zoom image' + (img.alt ? ': ' + img.alt : ''));
+      img.addEventListener('click', function () { openLightbox(img); });
+      img.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(img); }
+      });
+    });
+  }
+
+  function openLightbox(img) {
+    if (!els.lightbox || !els.lightboxImg) return;
+    lightboxTrigger = img;
+    els.lightboxImg.src = img.currentSrc || img.src;
+    els.lightboxImg.alt = img.alt || '';
+    els.lightbox.hidden = false;
+    if (els.lightboxClose) els.lightboxClose.focus();
+  }
+
+  function closeLightbox() {
+    if (!els.lightbox || els.lightbox.hidden) return;
+    els.lightbox.hidden = true;
+    els.lightboxImg.removeAttribute('src');
+    if (lightboxTrigger && typeof lightboxTrigger.focus === 'function') {
+      lightboxTrigger.focus();
+    }
+    lightboxTrigger = null;
+  }
+
+  function onLightboxClick(e) {
+    // Click on the dimmed backdrop (not the image itself) closes.
+    if (e.target === els.lightbox) closeLightbox();
+  }
+
+  // ---------------------------------------------------------------------
+  // Emoji shortcodes (v1.4) — static map, no library
+  // ---------------------------------------------------------------------
+
+  const EMOJI = {
+    // faces / smileys
+    smile: '😄', smiley: '😃', grin: '😁', laughing: '😆', joy: '😂',
+    rofl: '🤣', wink: '😉', blush: '😊', slightly_smiling_face: '🙂',
+    upside_down_face: '🙃', sweat_smile: '😅', heart_eyes: '😍',
+    kissing_heart: '😘', thinking: '🤔', neutral_face: '😐',
+    expressionless: '😑', unamused: '😒', roll_eyes: '🙄', smirk: '😏',
+    grimacing: '😬', relieved: '😌', pensive: '😔', confused: '😕',
+    worried: '😟', cry: '😢', sob: '😭', frowning: '😦', anguished: '😧',
+    fearful: '😨', weary: '😩', tired_face: '😫', triumph: '😤',
+    angry: '😠', rage: '😡', sunglasses: '😎', nerd_face: '🤓',
+    sleeping: '😴', dizzy_face: '😵', astonished: '😲', scream: '😱',
+    flushed: '😳', zany_face: '🤪', star_struck: '🤩', partying_face: '🥳',
+    // hands / gestures / people
+    thumbsup: '👍', '+1': '👍', thumbsdown: '👎', '-1': '👎', ok_hand: '👌',
+    clap: '👏', wave: '👋', raised_hands: '🙌', pray: '🙏', muscle: '💪',
+    point_up: '☝️', point_down: '👇', point_left: '👈', point_right: '👉',
+    fist: '✊', facepunch: '👊', v: '✌️', crossed_fingers: '🤞',
+    handshake: '🤝', writing_hand: '✍️', eyes: '👀', brain: '🧠',
+    // symbols / status
+    white_check_mark: '✅', heavy_check_mark: '✔️', check: '✅',
+    x: '❌', negative_squared_cross_mark: '❎', warning: '⚠️',
+    exclamation: '❗', question: '❓', heavy_exclamation_mark: '❗',
+    bangbang: '‼️', star: '⭐', star2: '🌟', sparkles: '✨',
+    heart: '❤️', orange_heart: '🧡', yellow_heart: '💛', green_heart: '💚',
+    blue_heart: '💙', purple_heart: '💜', broken_heart: '💔', fire: '🔥',
+    boom: '💥', zap: '⚡', dizzy: '💫', anger: '💢', sweat_drops: '💦',
+    100: '💯', tada: '🎉', confetti_ball: '🎊', balloon: '🎈',
+    gift: '🎁', trophy: '🏆', medal: '🏅', dart: '🎯', rocket: '🚀',
+    // objects / dev
+    bulb: '💡', memo: '📝', pencil: '✏️', pencil2: '✏️', pushpin: '📌',
+    paperclip: '📎', link: '🔗', lock: '🔒', unlock: '🔓', key: '🔑',
+    mag: '🔍', bell: '🔔', hammer: '🔨', wrench: '🔧', gear: '⚙️',
+    package: '📦', book: '📖', books: '📚', bookmark: '🔖', clipboard: '📋',
+    calendar: '📅', chart_with_upwards_trend: '📈',
+    chart_with_downwards_trend: '📉', bar_chart: '📊', email: '📧',
+    inbox_tray: '📥', outbox_tray: '📤', phone: '📞', computer: '💻',
+    keyboard: '⌨️', floppy_disk: '💾', bug: '🐛', sparkle: '❇️',
+    construction: '🚧', recycle: '♻️', hourglass: '⏳', alarm_clock: '⏰',
+    watch: '⌚', clock: '🕐', coffee: '☕', beer: '🍺', pizza: '🍕',
+    // arrows
+    arrow_right: '➡️', arrow_left: '⬅️', arrow_up: '⬆️', arrow_down: '⬇️',
+    arrow_upper_right: '↗️', arrow_lower_right: '↘️', arrow_forward: '▶️',
+    back: '🔙', soon: '🔜', repeat: '🔁',
+    // nature / misc
+    sunny: '☀️', cloud: '☁️', snowflake: '❄️', umbrella: '☔',
+    rainbow: '🌈', moon: '🌙', earth_americas: '🌎', seedling: '🌱',
+    deciduous_tree: '🌳', four_leaf_clover: '🍀', rose: '🌹',
+    sun_with_face: '🌞', dog: '🐶', cat: '🐱', unicorn: '🦄',
+    snake: '🐍', whale: '🐳', bird: '🐦', ghost: '👻', alien: '👽',
+    robot: '🤖', skull: '💀', poop: '💩', wave_emoji: '🌊',
+  };
+
+  // Replace :shortcode: with the mapped emoji across body text nodes. Skips
+  // <code>/<pre> (so colon-bearing code is untouched) and rendered Mermaid SVG.
+  // Replacing with a plain Unicode character keeps it sanitize-/export-safe and
+  // invisible to the search highlighter's later text walk.
+  function renderEmoji() {
+    if (!els.preview) return;
+    const walker = document.createTreeWalker(els.preview, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        if (!node.nodeValue || node.nodeValue.indexOf(':') === -1) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        const p = node.parentNode;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        if (p.closest && p.closest('code, pre, .mermaid-diagram, .pre-tools')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const targets = [];
+    let n;
+    while ((n = walker.nextNode())) targets.push(n);
+    targets.forEach(function (tn) {
+      const replaced = tn.nodeValue.replace(/:([a-z0-9_+-]+):/gi, function (m, code) {
+        const key = code.toLowerCase();
+        return Object.prototype.hasOwnProperty.call(EMOJI, key) ? EMOJI[key] : m;
+      });
+      if (replaced !== tn.nodeValue) tn.nodeValue = replaced;
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Scroll-position memory, per file (v1.4) — reuses the v1.3 IndexedDB store
+  // ---------------------------------------------------------------------
+
+  const SCROLL_KEY = 'scroll';
+  const SCROLL_MAX = 40;
+  const scrollSupported = typeof window.indexedDB !== 'undefined';
+
+  // Stable per-file identity. Reuses name+size (same shape the recent list keys
+  // on) so the position follows the document, not the tab.
+  function fileKey() {
+    if (!state.fileName) return null;
+    return state.fileName + '::' + (state.fileSize || 0);
+  }
+
+  function scheduleSaveScroll() {
+    if (restoringScroll || !scrollSupported || !state.fileName) return;
+    if (scrollSaveTimer) clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = setTimeout(saveScrollNow, 400);
+  }
+
+  async function saveScrollNow() {
+    const key = fileKey();
+    if (!key) return;
+    const p = previewScroll ? previewScroll.scrollTop : 0;
+    const s = els.source ? els.source.scrollTop : 0;
+    try {
+      let list = await idbGet(SCROLL_KEY);
+      if (!Array.isArray(list)) list = [];
+      list = list.filter(function (e) { return e && e.key !== key; });
+      list.unshift({ key: key, p: p, s: s });
+      if (list.length > SCROLL_MAX) list = list.slice(0, SCROLL_MAX);
+      await idbSet(SCROLL_KEY, list);
+    } catch (err) { /* best-effort */ }
+  }
+
+  // Restore the saved offsets for the current file (or top if none). Clamped to
+  // each pane's max so a now-shorter document doesn't overscroll. Guarded with
+  // restoringScroll + isSyncing so it doesn't trip save or sync-scroll.
+  async function restoreScroll() {
+    if (!scrollSupported) return;
+    const key = fileKey();
+    if (!key) return;
+    let saved = null;
+    try {
+      const list = await idbGet(SCROLL_KEY);
+      if (Array.isArray(list)) {
+        saved = list.find(function (e) { return e && e.key === key; });
+      }
+    } catch (err) { return; }
+    restoringScroll = true;
+    isSyncing = true;
+    const p = saved ? (saved.p || 0) : 0;
+    const s = saved ? (saved.s || 0) : 0;
+    if (previewScroll) {
+      const max = Math.max(0, previewScroll.scrollHeight - previewScroll.clientHeight);
+      previewScroll.scrollTop = Math.min(p, max);
+    }
+    if (els.source) {
+      const max = Math.max(0, els.source.scrollHeight - els.source.clientHeight);
+      els.source.scrollTop = Math.min(s, max);
+    }
+    requestAnimationFrame(function () {
+      isSyncing = false;
+      restoringScroll = false;
+    });
+  }
+
+  // ---------------------------------------------------------------------
   // YAML frontmatter (dependency-free, common-case parser)
   // ---------------------------------------------------------------------
 
@@ -1092,9 +1361,12 @@
       return;
     }
     const clone = els.preview.cloneNode(true);
-    // Strip app chrome: copy buttons / pills, search highlights, error notes.
+    // Strip app chrome: copy buttons / pills, search highlights, error notes,
+    // heading anchor affordances (v1.4). The lightbox lives outside the preview,
+    // so it is never in this clone; emoji are Unicode text and stay (content).
     clone.querySelectorAll('.pre-tools').forEach(function (node) { node.remove(); });
     clone.querySelectorAll('.mermaid-error').forEach(function (node) { node.remove(); });
+    clone.querySelectorAll('.heading-anchor').forEach(function (node) { node.remove(); });
     clone.querySelectorAll('mark.search-hit').forEach(function (m) {
       m.replaceWith(document.createTextNode(m.textContent));
     });
@@ -1261,6 +1533,8 @@
     renderPreview();
     setStatus('Loaded', 'just now');
     if (state.view === 'landing') setView('split');
+    // Restore the per-file scroll position after layout settles (v1.4).
+    setTimeout(restoreScroll, 60);
   }
 
   async function saveFile() {
@@ -1399,6 +1673,9 @@
   async function clearRecent() {
     if (!recentSupported) return;
     try { await idbSet(RECENT_KEY, []); } catch (err) { /* ignore */ }
+    // Forgetting recent files also drops their saved scroll positions (v1.4),
+    // so the scroll store can't outlive the file list it shadows.
+    try { await idbSet(SCROLL_KEY, []); } catch (err) { /* ignore */ }
     renderRecent([]);
   }
 
@@ -1612,9 +1889,15 @@
   function onKeyDown(e) {
     const mod = e.ctrlKey || e.metaKey;
     if (!mod) {
-      if (e.key === 'Escape' && search.open) {
-        e.preventDefault();
-        closeSearch();
+      if (e.key === 'Escape') {
+        // Lightbox takes precedence over the find bar when both could be open.
+        if (els.lightbox && !els.lightbox.hidden) {
+          e.preventDefault();
+          closeLightbox();
+        } else if (search.open) {
+          e.preventDefault();
+          closeSearch();
+        }
       }
       return;
     }
@@ -1805,6 +2088,7 @@
     if (previewScroll) {
       let spyTick = false;
       previewScroll.addEventListener('scroll', function () {
+        scheduleSaveScroll();  // v1.4: remember scroll position per file
         if (spyTick) return;
         spyTick = true;
         requestAnimationFrame(function () { spyTick = false; updateScrollspy(); });
@@ -1816,9 +2100,16 @@
 
     // Split-view sync scroll: each pane drives the other (guarded re-entrancy).
     if (els.source && previewScroll) {
-      els.source.addEventListener('scroll', function () { syncScroll(els.source, previewScroll); });
+      els.source.addEventListener('scroll', function () {
+        scheduleSaveScroll();  // v1.4
+        syncScroll(els.source, previewScroll);
+      });
       previewScroll.addEventListener('scroll', function () { syncScroll(previewScroll, els.source); });
     }
+
+    // Image lightbox (v1.4): close on backdrop click or the close button.
+    if (els.lightbox) els.lightbox.addEventListener('click', onLightboxClick);
+    if (els.lightboxClose) els.lightboxClose.addEventListener('click', closeLightbox);
 
     // Drag-and-drop open (additive to the Open File button).
     window.addEventListener('dragenter', onDragEnter);
