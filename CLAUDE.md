@@ -39,5 +39,7 @@ file: identify its folder, create it if missing, add it there.
   + apple-touch-icon + og:image/twitter:image). Moving or renaming any of them means
   updating manifest.json, the sw.js ASSETS list (and bumping `CACHE_NAME`), and
   index.html together.
-- manifest.json start_url/scope are "./" - keep them relative for the Pages
-  project-path to work.
+- manifest.json start_url/scope are absolute `https://pinion.buildwithbaker.io/`
+  (set when the app moved to its own custom domain, served from the domain root -
+  not the old `/pinion-md/` project subpath). A relative `./` would also resolve at
+  root; if the custom domain ever changes, update these and `CNAME` together.
