@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://buildwithbaker.github.io/pinion-md/sitemap.xml
+Sitemap: https://pinion.buildwithbaker.io/sitemap.xml
