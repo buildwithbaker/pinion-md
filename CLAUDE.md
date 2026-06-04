@@ -13,8 +13,8 @@ offline support.
 - No build step and no test runner; CI runs a root-hygiene + link check only.
 
 ## Deploy
-- Static GitHub Pages project site (note the `.nojekyll` file). Merging a PR into
-  main publishes the repo root as-is.
+- Static GitHub Pages site on a custom domain (`CNAME` -> pinion.buildwithbaker.io;
+  note the `.nojekyll` file). Merging a PR into main publishes the repo root as-is.
 
 ## Branching (main is protected)
 `main` is protected - direct pushes are rejected. Branch, commit, push, open a

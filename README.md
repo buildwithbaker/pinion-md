@@ -2,7 +2,7 @@
 
 A clean, fast markdown reader and writer for the web. Point it at a `.md` file on your computer, read it rendered, or flip to edit mode to write. Lives in your browser as an installable PWA. No accounts, no clutter, no upload.
 
-**Live:** https://buildwithbaker.github.io/pinion-md/
+**Live:** https://pinion.buildwithbaker.io/
 
 ## What it does
 
