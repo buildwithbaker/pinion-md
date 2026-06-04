@@ -57,7 +57,7 @@ pinion-md/
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
   sw.js                   service worker — CACHE_NAME 'pinion-md-v13', ASSETS precache list
-  manifest.json           PWA manifest (start_url/scope "./", theme #2B4A8B)
+  manifest.json           PWA manifest (start_url/scope https://pinion.buildwithbaker.io/, theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
   robots.txt              allow-all + sitemap reference
   sitemap.xml             single-URL sitemap (root)
@@ -167,7 +167,7 @@ python3 -m http.server 8000     # or: npx serve .
 
 ## 7. Conventions & formatting
 
-- **`manifest.json` `start_url`/`scope` are `"./"`** (relative) so the Pages project-path (`/pinion-md/`) resolves correctly.
+- **`manifest.json` `start_url`/`scope` are absolute `https://pinion.buildwithbaker.io/`** — set when the app moved to its custom domain (served from the domain root, not the old `/pinion-md/` project subpath). A relative `"./"` would also resolve at root; keep them aligned with `CNAME`.
 - Theme color **`#2B4A8B`** is the BwB indigo umbrella color; the reader surface and syntax theme are tuned for an **indigo-only palette** (`vendor/highlight-theme.css`).
 - All DOM ids the app touches are `js-`-prefixed (`js-source`, `js-preview`, `js-seg`, etc.).
 
@@ -177,8 +177,8 @@ python3 -m http.server 8000     # or: npx serve .
 
 - **`sw.js` MUST stay at the repo root** — moving it shrinks the service-worker scope and GitHub Pages can't send `Service-Worker-Allowed` to widen it.
 - **When any asset URL changes, update the `ASSETS` precache list in `sw.js` AND bump `CACHE_NAME`** — otherwise installed PWAs keep the old cache and 404 the moved assets offline.
-- **Icon files stay at the repo root** — their paths are referenced by both `manifest.json` (`icons`) and the `sw.js` precache list. Don't move/rename without updating both.
-- **`manifest.json` start_url/scope must stay `"./"`** (relative) for the Pages project-path to work.
+- **Icons live in `icons/`, the OG image in `assets/img/`** (BwB Repo Structure Standard v2.0 — no loose images at root) — their paths are referenced by `manifest.json` (`icons`), the `sw.js` `ASSETS` precache list, and `index.html` (favicon + apple-touch-icon + og:image/twitter:image). Don't move/rename without updating all three (and bumping `CACHE_NAME`).
+- **`manifest.json` start_url/scope are absolute `https://pinion.buildwithbaker.io/`** — if the custom domain ever changes, update these and `CNAME` together.
 - **Never inject raw `marked` output** — always route through `DOMPurify.sanitize()` in `renderPreview()`.
 - Vendored libs are pinned versions; updating them is a deliberate step (re-fetch + cache bump), not an `npm update`.
 ```
