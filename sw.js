@@ -5,7 +5,7 @@
  * Bump CACHE_NAME (v1 -> v2 etc.) any time ASSETS change so old caches drop.
  */
 
-const CACHE_NAME = 'pinion-md-v14';
+const CACHE_NAME = 'pinion-md-v15';
 
 const ASSETS = [
   './',
@@ -13,11 +13,11 @@ const ASSETS = [
   './css/style.css',
   './js/app.js',
   './manifest.json',
-  './icon.svg',
-  './icon-180.png',
-  './icon-192.png',
-  './icon-512.png',
-  './icon-maskable-512.png',
+  './icons/icon.svg',
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   './vendor/marked.min.js',
   './vendor/highlight.min.js',
   './vendor/purify.min.js',

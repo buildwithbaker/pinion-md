@@ -62,13 +62,16 @@ pinion-md/
   robots.txt              allow-all + sitemap reference
   sitemap.xml             single-URL sitemap (root)
 
-  og-image.png            1200x630 social card (og:image / twitter:image)
-  icon.svg                Lucide Feather on indigo (source)
-  icon-180.png            apple-touch-icon (downscaled from icon-512.png)
-  icon-192.png            generated from icon.svg
-  icon-512.png            generated from icon.svg
-  icon-maskable-512.png   maskable variant for Android adaptive icons
-  icon-maskable.svg
+  assets/img/             non-icon images (BwB Repo Structure Standard v2.0 — no loose images at root)
+    og-image.png          1200x630 social card (og:image / twitter:image)
+
+  icons/                  app icons (BwB Repo Structure Standard v2.0 — no loose icons at root)
+    icon.svg              Lucide Feather on indigo (source)
+    icon-180.png          apple-touch-icon (downscaled from icon-512.png)
+    icon-192.png          generated from icon.svg
+    icon-512.png          generated from icon.svg
+    icon-maskable-512.png maskable variant for Android adaptive icons
+    icon-maskable.svg
 
   vendor/                 vendored third-party libs (offline + supply-chain stability)
     marked.min.js
