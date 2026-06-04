@@ -13,15 +13,19 @@ offline support.
 - No build step and no test runner; CI runs a root-hygiene + link check only.
 
 ## Deploy
-- Static GitHub Pages project site (note the `.nojekyll` file). Pushing to main
-  publishes the repo root as-is.
+- Static GitHub Pages project site (note the `.nojekyll` file). Merging a PR into
+  main publishes the repo root as-is.
+
+## Branching (main is protected)
+`main` is protected - direct pushes are rejected. Branch, commit, push, open a
+PR, then squash-merge once CI is green. Never run `git push origin main`.
 
 ## File organization (root is locked)
 Do not add files to the repo root unless required (index.html, manifest.json,
 sw.js, .nojekyll, icons, README, LICENSE, CLAUDE.md, dotfiles). Before adding a
 file: identify its folder, create it if missing, add it there.
-- New CSS -> css/; new JS -> js/; vendored third-party lib -> vendor/;
-  planning/spec doc -> docs/internal/.
+- New CSS -> css/; new JS -> js/; new icon -> icons/; new image -> assets/img/;
+  vendored third-party lib -> vendor/; planning/spec doc -> docs/internal/.
 
 ## Do not touch
 - sw.js MUST stay at the repo root - moving it shrinks the service-worker scope
@@ -29,8 +33,11 @@ file: identify its folder, create it if missing, add it there.
 - When you change any asset URL, update the `ASSETS` precache list in sw.js AND
   bump `CACHE_NAME` (e.g. pinion-md-v5 -> v6), or installed PWAs keep the old
   cache and 404 the moved assets offline.
-- Icon files stay at the repo root - their paths are referenced by both
-  manifest.json ("icons") and the sw.js precache list. Don't move or rename them
-  without updating both.
+- Icons live in `icons/` and the OG image in `assets/img/` (Build with Baker Repo
+  Structure Standard v2.0 - no loose images at root). Their paths are referenced by
+  manifest.json ("icons"), the sw.js `ASSETS` precache list, and index.html (favicon
+  + apple-touch-icon + og:image/twitter:image). Moving or renaming any of them means
+  updating manifest.json, the sw.js ASSETS list (and bumping `CACHE_NAME`), and
+  index.html together.
 - manifest.json start_url/scope are "./" - keep them relative for the Pages
   project-path to work.

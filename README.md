@@ -77,10 +77,13 @@ pinion-md/
   js/app.js               # File System Access API, marked init, state, view toggle, shortcuts
   sw.js                   # Service worker, cache-first for app shell
   manifest.json           # PWA manifest
-  icon.svg                # Lucide Feather on indigo (source SVG)
-  icon-192.png            # Generated from icon.svg
-  icon-512.png            # Generated from icon.svg
-  icon-maskable-512.png   # Maskable variant for Android adaptive icons
+  icons/                  # app icons (no loose images at root, per BwB Repo Structure Standard v2.0)
+    icon.svg              # Lucide Feather on indigo (source SVG)
+    icon-192.png          # Generated from icon.svg
+    icon-512.png          # Generated from icon.svg
+    icon-maskable-512.png # Maskable variant for Android adaptive icons
+  assets/img/
+    og-image.png          # 1200x630 social card (og:image / twitter:image)
   vendor/
     marked.min.js
     highlight.min.js
