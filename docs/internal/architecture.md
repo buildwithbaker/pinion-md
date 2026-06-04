@@ -1,6 +1,6 @@
 # Pinion.md — Architecture Reference
 
-Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-05-31 (v1.6).
+Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pairs with the root [`CLAUDE.md`](../../CLAUDE.md) (run/deploy/do-not-touch quick rules). Last updated 2026-06-04 (v1.6).
 
 ---
 
@@ -8,7 +8,7 @@ Deep reference for how Pinion.md is built, how it runs, and how to extend it. Pa
 
 A clean, fast **markdown reader and writer** for the web. Point it at a `.md` file on your computer, read it rendered, or flip to edit mode and write. Lives in the browser as an installable PWA. No accounts, no upload, no clutter.
 
-- **Live:** https://buildwithbaker.github.io/pinion-md/
+- **Live:** https://pinion.buildwithbaker.io/
 - A [Build with Baker](https://github.com/buildwithbaker) product.
 
 What it does:
@@ -43,7 +43,7 @@ What it does:
 | Diagrams | [Mermaid](https://mermaid.js.org/) (classic UMD build) | 10.9.3 |
 | File access | File System Access API (Chromium) | — |
 | PWA | `manifest.json` + `sw.js` (cache-first) | — |
-| Hosting | GitHub Pages (project site) | — |
+| Hosting | GitHub Pages + custom domain (`CNAME` → pinion.buildwithbaker.io) | — |
 
 **All third-party libraries are vendored locally in `vendor/`** for offline support and supply-chain stability — nothing is loaded from a CDN at runtime.
 
@@ -56,7 +56,7 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker — CACHE_NAME 'pinion-md-v13', ASSETS precache list
+  sw.js                   service worker — CACHE_NAME 'pinion-md-v15', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope https://pinion.buildwithbaker.io/, theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
   robots.txt              allow-all + sitemap reference
@@ -161,7 +161,7 @@ python3 -m http.server 8000     # or: npx serve .
 # open http://localhost:8000/   ( file:// will NOT register the SW or the file picker )
 ```
 
-**Deploy:** static GitHub Pages **project** site (note `.nojekyll`). Push to main publishes the repo root as-is at `/pinion-md/`.
+**Deploy:** static GitHub Pages site on a **custom domain** (`CNAME` → `pinion.buildwithbaker.io`; note `.nojekyll`). Merging a PR to main publishes the repo root as-is at the domain root.
 
 ---
 
