@@ -8,6 +8,14 @@
   "background_color": "#E5E7EB",
   "theme_color": "#2B4A8B",
   "categories": ["productivity", "utilities"],
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "text/markdown": [".md", ".markdown", ".mdown", ".mkd"]
+      }
+    }
+  ],
   "icons": [
     {
       "src": "icons/icon.svg",
