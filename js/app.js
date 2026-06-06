@@ -2492,6 +2492,21 @@
         });
       });
     }
+
+    // PWA file handling: when launched from the OS "Open with" handler for a
+    // markdown file, route the launched handle through the existing load path
+    // (so polling, Recent list, and save-back all work).
+    if ('launchQueue' in window && 'LaunchParams' in window && 'files' in LaunchParams.prototype) {
+      window.launchQueue.setConsumer(async (launchParams) => {
+        if (!launchParams || !launchParams.files || !launchParams.files.length) return;
+        try {
+          state.fileHandle = launchParams.files[0];   // FileSystemFileHandle — writable, so Save works
+          await loadFromHandle();
+        } catch (err) {
+          toast('Could not open launched file: ' + (err.message || err), 'danger');
+        }
+      });
+    }
   }
 
   if (document.readyState === 'loading') {
