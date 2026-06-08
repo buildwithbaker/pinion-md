@@ -1,0 +1,9 @@
+# CodeRabbit config - pinion-md
+# Docs: https://docs.coderabbit.ai/getting-started/configure-coderabbit
+reviews:
+  profile: chill              # switch to "assertive" for pickier reviews
+  high_level_summary: true
+  poem: false
+
+chat:
+  auto_reply: true
