@@ -41,6 +41,7 @@
     paneSource:     $('js-pane-source'),
     panePreview:    $('js-pane-preview'),
     source:         $('js-source'),
+    copyAll:        $('js-copy-all'),
     preview:        $('js-preview'),
     lineCount:      $('js-line-count'),
     sizeKb:         $('js-size'),
@@ -491,6 +492,50 @@
     if (btn._copyTimer) clearTimeout(btn._copyTimer);
     btn._copyTimer = setTimeout(function () {
       btn.innerHTML = ICON_COPY + '<span class="code-copy-label">Copy</span>';
+      btn.classList.remove('copied');
+    }, 1300);
+  }
+
+  // Copy the entire markdown source to the clipboard.
+  function copyAllSource() {
+    const btn = els.copyAll;
+    const text = (els.source && els.source.value) || '';
+    if (!text) {
+      toast('Nothing to copy - open a file first.', 'warning');
+      return;
+    }
+    const done = function () { flashCopyAll(btn); toast('Copied document', 'success'); };
+    const fail = function () { toast('Could not copy document', 'danger'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fail);
+    } else {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        done();
+      } catch (e) {
+        fail();
+      }
+    }
+  }
+
+  // Brief "Copied" flash on the Copy-all button.
+  function flashCopyAll(btn) {
+    if (!btn) return;
+    const label = btn.querySelector('.ph-copy-label');
+    if (!label) return;
+    const original = label.textContent;
+    label.textContent = 'Copied';
+    btn.classList.add('copied');
+    if (btn._copyTimer) clearTimeout(btn._copyTimer);
+    btn._copyTimer = setTimeout(function () {
+      label.textContent = original;
       btn.classList.remove('copied');
     }, 1300);
   }
@@ -2379,6 +2424,7 @@
     });
 
     els.source.addEventListener('input', onSourceInput);
+    if (els.copyAll) els.copyAll.addEventListener('click', copyAllSource);
 
     if (els.tocToggle) els.tocToggle.addEventListener('click', toggleToc);
     if (els.toc) els.toc.addEventListener('click', onTocClick);
