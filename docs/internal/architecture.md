@@ -45,7 +45,7 @@ What it does:
 | PWA | `manifest.json` + `sw.js` (cache-first) | — |
 | Hosting | GitHub Pages + custom domain (`CNAME` → pinion.buildwithbaker.io) | — |
 
-**All third-party libraries are vendored locally in `vendor/`** for offline support and supply-chain stability, and so is the **Inter** typeface (`vendor/fonts.css` + `vendor/fonts/*.woff2`, precached by `sw.js`). One asset is still fetched at runtime: the **JetBrains Mono** stylesheet from Google Fonts, which `index.html` links and the CSP allows via `style-src https://fonts.googleapis.com` / `font-src https://fonts.gstatic.com`. `sw.js` deliberately ignores cross-origin requests, so offline the mono stack falls back to `ui-monospace`. No local copy of JetBrains Mono ships with this repo.
+**All third-party libraries are vendored locally in `vendor/`** for offline support and supply-chain stability, and so are **both typefaces** - Inter (400/500/600/700) and JetBrains Mono (400/600/700), latin subset, SIL OFL 1.1, declared in `vendor/fonts.css` and precached by `sw.js`. **Nothing is loaded from a CDN or any other origin at runtime**, which is what lets the CSP hold `style-src`, `font-src` and `connect-src` at `'self'` with no host allowances at all. Adding a remote asset would mean widening that CSP - vendor it instead.
 
 ---
 
@@ -56,7 +56,7 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app — FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker — CACHE_NAME 'pinion-md-v18', ASSETS precache list
+  sw.js                   service worker — CACHE_NAME 'pinion-md-v19', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope https://pinion.buildwithbaker.io/, theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
   robots.txt              allow-all + sitemap reference
@@ -85,8 +85,10 @@ pinion-md/
     purify.min.js
     mermaid.min.js        Mermaid 10.9.3 classic UMD build (~3.2 MB) — diagrams
     highlight-theme.css   syntax theme tuned for the indigo-only palette
-    fonts.css             @font-face rules for the self-hosted Inter
-    fonts/                inter-latin-{400,500,600,700}-normal.woff2 (SIL OFL 1.1)
+    fonts.css             @font-face rules for both self-hosted typefaces
+    fonts/                inter-latin-{400,500,600,700}-normal.woff2,
+                          jetbrains-mono-latin-{400,600,700}-normal.woff2,
+                          OFL-Inter.txt, OFL-JetBrainsMono.txt (SIL OFL 1.1)
 
   docs/internal/
     architecture.md       this file
