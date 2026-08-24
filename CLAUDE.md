@@ -4,8 +4,9 @@ See @README.md for what this project is.
 See @docs/internal/architecture.md for the deep architecture reference (app.js structure, render/sanitize flow, extension points, vendor updates, gotchas).
 
 Pinion.md is a hand-authored, build-free PWA: a markdown reader/writer using the
-File System Access API. Third-party libs are vendored in `vendor/` for true
-offline support.
+File System Access API. Third-party libs and the Inter typeface are vendored in
+`vendor/` for offline support; the JetBrains Mono stylesheet from Google Fonts is
+the one asset still fetched at runtime.
 
 ## Run / test
 - Serve over HTTP (a service worker needs it): `npx serve .` then open the URL.
@@ -41,8 +42,10 @@ is the standard.
 
 ## File organization (root is locked)
 Do not add files to the repo root unless required (index.html, manifest.json,
-sw.js, .nojekyll, icons, README, LICENSE, CLAUDE.md, dotfiles). Before adding a
-file: identify its folder, create it if missing, add it there.
+sw.js, .nojekyll, icons, README, CHANGELOG, LICENSE, CLAUDE.md, dotfiles). The
+permitted-root list is enforced by the `hygiene` CI job, so a genuinely new root
+file must also be added to the allowlist in `.github/workflows/ci.yml`. Before
+adding a file: identify its folder, create it if missing, add it there.
 - New CSS -> css/; new JS -> js/; new icon -> icons/; new image -> assets/img/;
   vendored third-party lib -> vendor/; planning/spec doc -> docs/internal/.
 
