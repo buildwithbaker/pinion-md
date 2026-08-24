@@ -119,7 +119,7 @@ Re-fetch from the source URLs, drop into `vendor/`, then bump `CACHE_NAME` in `s
 
 See [CHANGELOG.md](CHANGELOG.md) for what shipped in each version.
 
-> **Internals:** see [docs/internal/architecture.md](docs/internal/architecture.md) for the full architecture reference — app.js structure, render/sanitize flow, extension points, vendor updates, and gotchas.
+> **Internals:** see [docs/internal/architecture.md](docs/internal/architecture.md) for the full architecture reference - app.js structure, render/sanitize flow, extension points, vendor updates, and gotchas.
 
 ## License
 
