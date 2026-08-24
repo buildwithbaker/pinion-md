@@ -1,12 +1,19 @@
 /* Pinion.md - vendor/fonts.css
  *
- * Self-hosted Inter (SIL Open Font License 1.1), latin subset, woff2 in
- * vendor/fonts/. Weights 400/500/600/700 match what the Google Fonts request
- * used to ask for, so nothing about the type changes - it just no longer needs
- * the network. font-display: swap keeps text visible while a face loads.
+ * Both typefaces, self-hosted, latin subset, woff2 in vendor/fonts/. Nothing
+ * about the type is fetched at runtime, which is what lets index.html hold
+ * style-src and font-src at 'self'. font-display: swap keeps text visible while
+ * a face loads.
  *
- * JetBrains Mono is still loaded from Google Fonts in index.html; no local copy
- * of it ships with this repo.
+ * Inter (SIL Open Font License 1.1, see fonts/OFL-Inter.txt) at 400/500/600/700,
+ * the weights the old Google Fonts request asked for.
+ *
+ * JetBrains Mono (SIL Open Font License 1.1, see fonts/OFL-JetBrainsMono.txt) at
+ * 400/600/700 - the weights the app actually renders: 400 for code, the editor
+ * and the pane meta, 600 for the filename badge, language pill, slide counter
+ * and highlight.js keywords/titles, 700 for .hljs-strong. The old request asked
+ * for 400 and 500, so 600 and 700 were being synthesized; they are real faces
+ * now, and nothing renders at 500.
  */
 
 @font-face {
@@ -39,4 +46,28 @@
   font-weight: 700;
   font-display: swap;
   src: url('fonts/inter-latin-700-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2');
 }

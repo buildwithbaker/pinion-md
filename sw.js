@@ -1,12 +1,12 @@
 /* Pinion.md - sw.js
  *
  * Cache-first service worker for local app shell assets.
- * Third-party libraries and Inter are vendored locally for offline support;
- * JetBrains Mono is the one asset still fetched from Google Fonts.
+ * Third-party libraries and both typefaces are vendored locally, so the app
+ * fetches nothing from any other origin at runtime and works fully offline.
  * Bump CACHE_NAME (v1 -> v2 etc.) any time ASSETS change so old caches drop.
  */
 
-const CACHE_NAME = 'pinion-md-v18';
+const CACHE_NAME = 'pinion-md-v19';
 
 const ASSETS = [
   './',
@@ -29,6 +29,9 @@ const ASSETS = [
   './vendor/fonts/inter-latin-500-normal.woff2',
   './vendor/fonts/inter-latin-600-normal.woff2',
   './vendor/fonts/inter-latin-700-normal.woff2',
+  './vendor/fonts/jetbrains-mono-latin-400-normal.woff2',
+  './vendor/fonts/jetbrains-mono-latin-600-normal.woff2',
+  './vendor/fonts/jetbrains-mono-latin-700-normal.woff2',
 ];
 
 // Install: cache all local assets
@@ -56,7 +59,7 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch: cache-first for same-origin assets, network fallback then cache for new ones.
-// Cross-origin (the JetBrains Mono stylesheet) is left to the browser's normal cache.
+// Cross-origin requests are ignored; the app makes none (the CSP forbids them).
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;

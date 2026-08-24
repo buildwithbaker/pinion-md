@@ -49,7 +49,7 @@ Inside the find bar: `Enter` next match, `Shift + Enter` previous match, `Esc` c
 | PWA | manifest.json + service worker (cache-first, fully offline after install) |
 | Hosting | GitHub Pages |
 
-All third-party libraries are vendored locally in `vendor/` for offline support and supply-chain stability, as is the Inter typeface. The one asset still fetched at runtime is the JetBrains Mono stylesheet from Google Fonts, used for code; offline, code falls back to the system monospace stack.
+All third-party libraries are vendored locally in `vendor/` for offline support and supply-chain stability, and so are both typefaces - Inter and JetBrains Mono, latin subset, SIL Open Font License 1.1. Nothing is loaded from a CDN or any other origin at runtime: the page's CSP holds `style-src`, `font-src` and `connect-src` at `'self'`.
 
 ## Browser support
 
@@ -92,8 +92,9 @@ pinion-md/
     purify.min.js
     mermaid.min.js        # Mermaid 10.9.3 classic UMD build (~3.2 MB)
     highlight-theme.css   # Syntax theme tuned for indigo-only palette
-    fonts.css             # @font-face rules for the self-hosted Inter
-    fonts/                # Inter latin woff2, weights 400/500/600/700
+    fonts.css             # @font-face rules for the self-hosted typefaces
+    fonts/                # Inter latin woff2 400/500/600/700, JetBrains Mono 400/600/700,
+                          #   plus the OFL licence for each
   docs/internal/
     architecture.md       # Deep architecture reference
   .github/workflows/

@@ -4,9 +4,11 @@ See @README.md for what this project is.
 See @docs/internal/architecture.md for the deep architecture reference (app.js structure, render/sanitize flow, extension points, vendor updates, gotchas).
 
 Pinion.md is a hand-authored, build-free PWA: a markdown reader/writer using the
-File System Access API. Third-party libs and the Inter typeface are vendored in
-`vendor/` for offline support; the JetBrains Mono stylesheet from Google Fonts is
-the one asset still fetched at runtime.
+File System Access API. Third-party libs and both typefaces (Inter, JetBrains
+Mono) are vendored in `vendor/` for true offline support - nothing is fetched
+from another origin at runtime, and the CSP in index.html holds style-src,
+font-src and connect-src at 'self' with no host allowances. A new remote asset
+would mean widening that CSP; vendor it instead.
 
 ## Run / test
 - Serve over HTTP (a service worker needs it): `npx serve .` then open the URL.
