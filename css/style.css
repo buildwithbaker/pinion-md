@@ -1294,8 +1294,15 @@ mark.search-hit.active {
   .filename-badge { max-width: 96px; }
 }
 
-/* v1.1: on narrow widths the TOC becomes an overlay drawer instead of a rail. */
-@media (max-width: 720px) {
+/* v1.1: on narrow widths the TOC becomes an overlay drawer instead of a rail.
+ * The breakpoint is 960px, not the viewport size you might expect, because the
+ * reading column caps at 720px: below ~960 there is no room for a 224px rail
+ * beside it, so the rail takes its width out of the column instead. Measured
+ * with a document open, that cost the column 208px at 768 (720 -> 512, a 29%
+ * cut), 116px at 860 and 76px at 900, and nothing at 1000 and up - and 721-900
+ * is also where Split has already collapsed to a single stacked column. As an
+ * overlay the TOC costs the column nothing at any width. */
+@media (max-width: 960px) {
   .preview-body { position: relative; }
   .pane-preview.toc-open .toc-panel {
     position: absolute;
@@ -1305,6 +1312,9 @@ mark.search-hit.active {
     z-index: 5;
     box-shadow: 4px 0 16px rgba(15, 26, 46, 0.22);
   }
+}
+
+@media (max-width: 720px) {
   .search-input { width: 110px; }
 }
 

@@ -28,6 +28,14 @@ Changes that landed on `main` after v1.6 without a version number of their own.
   Google Fonts preconnects and stylesheet and tightens the CSP: `style-src` and
   `font-src` are now `'self'` with no host allowances, so the app makes no
   request to any external origin at all. Cache: `pinion-md-v19`.
+- The table of contents opens as an overlay drawer up to 960px instead of 720px.
+  The reading column caps at 720px, so below roughly 960 there was no room for
+  the 224px rail beside it and the rail took its width out of the column
+  instead: opening the contents narrowed the column from 720px to 512px at 768
+  (a 29% cut), 604px at 860 and 644px at 900 - in the same band where Split has
+  already collapsed to a single stacked column. As an overlay it costs the
+  column nothing, and the rail still appears from 1000px where there is room for
+  both. Cache: `pinion-md-v21`.
 - The header no longer scrolls the app sideways on a phone. With a file open its
   row of controls was wider than the viewport below 900px - 11px over at 768,
   and 459px over at 320, which is most of a screen width. From 900px the action
