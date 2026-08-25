@@ -1256,6 +1256,44 @@ mark.search-hit.active {
   .footer .left .stat:nth-child(n+3) { display: none; }
 }
 
+/* The header holds brand, filename, the view control and up to five actions.
+ * With a file open that row is wider than the viewport below 900px, which
+ * scrolled the whole app sideways - 11px at 768, and most of a screen width on
+ * a phone. Two steps: from 900px the action labels collapse to their icons, and
+ * from 720px the row may also wrap onto a second line. `.btn-label` is clipped
+ * rather than display:none, so every button keeps its accessible name. */
+@media (max-width: 900px) {
+  .header .btn-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .header .btn { padding: 6px 9px; }
+  .filename-badge { max-width: 118px; }
+  .seg-control button { padding: 4px 7px; font-size: 12px; }
+}
+
+@media (max-width: 720px) {
+  .header {
+    height: auto;
+    min-height: var(--header-h);
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 8px 12px;
+  }
+}
+
+/* Very narrow: the wordmark goes and the feather alone carries the brand. */
+@media (max-width: 420px) {
+  .brand .wordmark { display: none; }
+  .filename-badge { max-width: 96px; }
+}
+
 /* v1.1: on narrow widths the TOC becomes an overlay drawer instead of a rail. */
 @media (max-width: 720px) {
   .preview-body { position: relative; }

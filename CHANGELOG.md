@@ -28,6 +28,13 @@ Changes that landed on `main` after v1.6 without a version number of their own.
   Google Fonts preconnects and stylesheet and tightens the CSP: `style-src` and
   `font-src` are now `'self'` with no host allowances, so the app makes no
   request to any external origin at all. Cache: `pinion-md-v19`.
+- The header no longer scrolls the app sideways on a phone. With a file open its
+  row of controls was wider than the viewport below 900px - 11px over at 768,
+  and 459px over at 320, which is most of a screen width. From 900px the action
+  labels collapse to their icons (clipped, so each button keeps its accessible
+  name), and from 720px the row may wrap onto a second line. Measured 0
+  horizontal overflow at 320, 375, 390, 768 and 1280 in all three view modes,
+  with and without the table of contents open. Cache: `pinion-md-v20`.
 - Added this changelog. Corrected the README file layout, the cache version
   recorded in `docs/internal/architecture.md`, and the "nothing is loaded from a
   CDN at runtime" claim in both.
