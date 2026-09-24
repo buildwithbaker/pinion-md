@@ -4,14 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Pinion.md</title>
   <meta name="description" content="A clean, fast markdown reader and writer for the web. Open a .md file, read it rendered, or flip to edit mode. No accounts, no clutter, no upload.">
   <meta name="theme-color" content="#2B4A8B" id="js-theme-color">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="vendor/fonts.css">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="vendor/highlight-theme.css">
 
@@ -70,7 +68,7 @@
           <line x1="3" y1="12" x2="3.01" y2="12"/>
           <line x1="3" y1="18" x2="3.01" y2="18"/>
         </svg>
-        Contents
+        <span class="btn-label">Contents</span>
       </button>
 
       <button id="js-theme-btn" class="btn btn-ghost btn-icon" type="button" aria-label="Theme: System">
@@ -85,7 +83,7 @@
           <path d="M9 20h6"/>
           <path d="M10.5 8.5l3 1.8-3 1.8z" fill="currentColor"/>
         </svg>
-        Present
+        <span class="btn-label">Present</span>
       </button>
 
       <button id="js-export" class="btn btn-ghost" type="button" aria-label="Export as HTML" hidden>
@@ -95,7 +93,7 @@
           <line x1="16" y1="13" x2="8" y2="13"/>
           <line x1="16" y1="17" x2="8" y2="17"/>
         </svg>
-        Export HTML
+        <span class="btn-label">Export HTML</span>
       </button>
 
       <button id="js-install" class="btn btn-ghost" type="button" hidden>
@@ -104,7 +102,7 @@
           <polyline points="7 10 12 15 17 10"/>
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
-        Install
+        <span class="btn-label">Install</span>
       </button>
 
       <button class="btn" type="button" id="js-open">
@@ -112,7 +110,7 @@
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
         </svg>
-        Open file
+        <span class="btn-label">Open file</span>
       </button>
     </header>
 
@@ -158,6 +156,14 @@
             Source
           </span>
           <span class="ph-right">
+            <button id="js-copy-all" class="ph-copy" type="button" aria-label="Copy entire document to clipboard">
+              <svg class="ph-copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <span class="ph-copy-label">Copy all</span>
+            </button>
+            <span class="ph-divider" aria-hidden="true"></span>
             <span class="meta"><span class="val" id="js-line-count">0</span> lines</span>
             <span class="ph-divider" aria-hidden="true"></span>
             <span class="meta"><span class="val" id="js-size">0</span> KB</span>

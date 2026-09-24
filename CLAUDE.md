@@ -4,8 +4,11 @@ See @README.md for what this project is.
 See @docs/internal/architecture.md for the deep architecture reference (app.js structure, render/sanitize flow, extension points, vendor updates, gotchas).
 
 Pinion.md is a hand-authored, build-free PWA: a markdown reader/writer using the
-File System Access API. Third-party libs are vendored in `vendor/` for true
-offline support.
+File System Access API. Third-party libs and both typefaces (Inter, JetBrains
+Mono) are vendored in `vendor/` for true offline support - nothing is fetched
+from another origin at runtime, and the CSP in index.html holds style-src,
+font-src and connect-src at 'self' with no host allowances. A new remote asset
+would mean widening that CSP; vendor it instead.
 
 ## Run / test
 - Serve over HTTP (a service worker needs it): `npx serve .` then open the URL.
@@ -16,14 +19,35 @@ offline support.
 - Static GitHub Pages site on a custom domain (`CNAME` -> pinion.buildwithbaker.io;
   note the `.nojekyll` file). Merging a PR into main publishes the repo root as-is.
 
-## Branching (main is protected)
-`main` is protected - direct pushes are rejected. Branch, commit, push, open a
-PR, then squash-merge once CI is green. Never run `git push origin main`.
+## Branching (main is protected - PR only)
+
+`main` is protected: direct pushes are rejected. **Never run `git push origin main`.**
+
+1. `git checkout main && git pull origin main` - start from an up-to-date main
+2. `git checkout -b <type>/<slug>` - branch BEFORE staging, so local `main` never diverges
+3. edit, then `git add -- <explicit paths>` - never `git add -A`
+4. `git commit -m "<message>"`
+5. `git push -u origin <branch>`
+6. `gh pr create --base main --fill`
+7. `gh pr checks <branch> --watch` - wait for the required checks
+8. `gh pr merge <branch> --squash --delete-branch`
+9. `git checkout main && git pull origin main`
+
+Never merge while a required check is failing or pending, and never disable a check to
+force a merge through - stop and report instead.
+
+Required check: `hygiene` (root-hygiene + link check; PR-only).
+
+Shortcut: `..\pinion-md-tools\ship.ps1 -Message "..." -Files icon.svg` runs steps 1-9.
+Note: that script currently merges with `--merge`, not `--squash`; the squash flow above
+is the standard.
 
 ## File organization (root is locked)
 Do not add files to the repo root unless required (index.html, manifest.json,
-sw.js, .nojekyll, icons, README, LICENSE, CLAUDE.md, dotfiles). Before adding a
-file: identify its folder, create it if missing, add it there.
+sw.js, .nojekyll, icons, README, CHANGELOG, LICENSE, CLAUDE.md, dotfiles). The
+permitted-root list is enforced by the `hygiene` CI job, so a genuinely new root
+file must also be added to the allowlist in `.github/workflows/ci.yml`. Before
+adding a file: identify its folder, create it if missing, add it there.
 - New CSS -> css/; new JS -> js/; new icon -> icons/; new image -> assets/img/;
   vendored third-party lib -> vendor/; planning/spec doc -> docs/internal/.
 

@@ -41,6 +41,7 @@
     paneSource:     $('js-pane-source'),
     panePreview:    $('js-pane-preview'),
     source:         $('js-source'),
+    copyAll:        $('js-copy-all'),
     preview:        $('js-preview'),
     lineCount:      $('js-line-count'),
     sizeKb:         $('js-size'),
@@ -105,6 +106,8 @@
   let hasToc = false;
 
   // Mermaid diagram render state (Feature 1, v1.2).
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const MMD_STYLE_ATTR = 'data-mmd-style';  // parking spot for deferred inline CSS
   let mermaidReady = false;   // initialize() has been called
   let mermaidSheet = null;    // constructed stylesheet holding diagram CSS (CSP-safe)
   let mermaidCss = [];        // CSS lifted from each diagram this render (reused by export)
@@ -495,6 +498,50 @@
     }, 1300);
   }
 
+  // Copy the entire markdown source to the clipboard.
+  function copyAllSource() {
+    const btn = els.copyAll;
+    const text = (els.source && els.source.value) || '';
+    if (!text) {
+      toast('Nothing to copy - open a file first.', 'warning');
+      return;
+    }
+    const done = function () { flashCopyAll(btn); toast('Copied document', 'success'); };
+    const fail = function () { toast('Could not copy document', 'danger'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fail);
+    } else {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        done();
+      } catch (e) {
+        fail();
+      }
+    }
+  }
+
+  // Brief "Copied" flash on the Copy-all button.
+  function flashCopyAll(btn) {
+    if (!btn) return;
+    const label = btn.querySelector('.ph-copy-label');
+    if (!label) return;
+    const original = label.textContent;
+    label.textContent = 'Copied';
+    btn.classList.add('copied');
+    if (btn._copyTimer) clearTimeout(btn._copyTimer);
+    btn._copyTimer = setTimeout(function () {
+      label.textContent = original;
+      btn.classList.remove('copied');
+    }, 1300);
+  }
+
   // ---------------------------------------------------------------------
   // Mermaid diagrams (async post-render pass, Feature 1)
   // ---------------------------------------------------------------------
@@ -534,6 +581,105 @@
       noteTextColor: '#0F1A2E',
       fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
     };
+  }
+
+  // ----- CSP-safe inline styling -------------------------------------------
+  // Mermaid styles the SVG it builds with inline style attributes plus one
+  // inline <style> element. index.html sets style-src without 'unsafe-inline',
+  // so Chromium refuses every one of them - including the svg's own
+  // "max-width: <intrinsic>px", the declaration that keeps a diagram at its
+  // natural size. Loosening the CSP for one library is the wrong trade, so we
+  // keep Mermaid's CSS away from the HTML parser instead: during a render pass
+  // style attributes are diverted to data-mmd-style, the <style> element's text
+  // is captured, and any markup Mermaid re-parses is rewritten the same way.
+  // Everything is then re-applied through the CSSOM, which CSP does not police.
+
+  // Rename style attributes to MMD_STYLE_ATTR, inside tags only so identical
+  // text inside a diagram label is never touched.
+  function deferInlineStyles(markup) {
+    return String(markup).replace(/<[a-zA-Z][^<>]*>/g, function (tag) {
+      return tag.replace(/(\s)style\s*=\s*("[^"]*"|'[^']*')/gi,
+        '$1' + MMD_STYLE_ATTR + '=$2');
+    });
+  }
+
+  // Deferred CSS skips Mermaid's own DOMPurify pass, and it comes from whatever
+  // document the user opened, so keep url() to same-document fragments (how
+  // Mermaid points an edge at its arrowhead). Anything else becomes an invalid
+  // declaration the browser drops.
+  function safeCssText(css) {
+    return String(css).replace(/url\(\s*(['"]?)(?!#)[^)]*\1\s*\)/gi, 'none');
+  }
+
+  // Move every parked declaration into the element's CSSOM style and clear the
+  // attribute, so the diagram ends up styled exactly as Mermaid intended.
+  function applyDeferredStyles(root) {
+    const parked = [].slice.call(root.querySelectorAll('[' + MMD_STYLE_ATTR + ']'));
+    parked.forEach(function (el) {
+      const css = el.getAttribute(MMD_STYLE_ATTR);
+      el.removeAttribute(MMD_STYLE_ATTR);
+      if (!css) return;
+      try { el.style.cssText = safeCssText(css); } catch (e) { /* skip bad CSS */ }
+    });
+  }
+
+  // Run fn with the three DOM entry points Mermaid uses for inline CSS diverted.
+  // Resolves to { svg, css }; the originals are restored even if fn throws.
+  async function renderWithDeferredStyles(fn) {
+    const proto = Element.prototype;
+    const nativeSetAttribute = proto.setAttribute;
+    const nativeGetAttribute = proto.getAttribute;
+    const nativeCreateElement = document.createElement;
+    const nativeParseFromString = DOMParser.prototype.parseFromString;
+    const css = [];
+
+    proto.setAttribute = function (name, value) {
+      if (name === 'style') {
+        return nativeSetAttribute.call(this, MMD_STYLE_ATTR,
+          value == null ? '' : String(value));
+      }
+      return nativeSetAttribute.call(this, name, value);
+    };
+    // Keep reads consistent with writes for code that sets a style and reads it
+    // back (Mermaid's own DOMPurify pass does exactly that).
+    proto.getAttribute = function (name) {
+      if (name === 'style') {
+        const parked = nativeGetAttribute.call(this, MMD_STYLE_ATTR);
+        if (parked !== null) return parked;
+      }
+      return nativeGetAttribute.call(this, name);
+    };
+    document.createElement = function (tag, options) {
+      if (String(tag).toLowerCase() !== 'style') {
+        return nativeCreateElement.call(document, tag, options);
+      }
+      // A <style> element is refused whether or not it carries content, so hand
+      // Mermaid a non-rendering stand-in and keep the CSS it writes.
+      const standIn = document.createElementNS(SVG_NS, 'desc');
+      const trap = {
+        configurable: true,
+        get: function () { return ''; },
+        set: function (value) { css.push(value == null ? '' : String(value)); },
+      };
+      Object.defineProperty(standIn, 'innerHTML', trap);
+      Object.defineProperty(standIn, 'textContent', trap);
+      return standIn;
+    };
+    // Mermaid re-parses its finished SVG to sanitize it, and its arrowhead
+    // markup carries literal style attributes; rename those before the parse.
+    DOMParser.prototype.parseFromString = function (markup, type) {
+      return nativeParseFromString.call(this, deferInlineStyles(markup), type);
+    };
+
+    try {
+      const out = await fn();
+      return { svg: out && out.svg ? out.svg : '', css: css };
+    } finally {
+      proto.setAttribute = nativeSetAttribute;
+      proto.getAttribute = nativeGetAttribute;
+      document.createElement = nativeCreateElement;
+      DOMParser.prototype.parseFromString = nativeParseFromString;
+    }
   }
 
   function initMermaid() {
@@ -590,9 +736,13 @@
       const src = (codeEl ? codeEl.textContent : pre.textContent) || '';
       const id = 'mmd-' + (++mermaidSeq);
       let svg = '';
+      let diagramCss = [];
       try {
-        const out = await window.mermaid.render(id, src);
-        svg = out && out.svg ? out.svg : '';
+        const out = await renderWithDeferredStyles(function () {
+          return window.mermaid.render(id, src);
+        });
+        svg = out.svg;
+        diagramCss = out.css;
       } catch (e) {
         if (token !== renderToken) return;  // superseded mid-flight
         const note = document.createElement('div');
@@ -605,13 +755,17 @@
 
       const wrap = document.createElement('div');
       wrap.className = 'mermaid-diagram';
-      // Mermaid hardened this SVG under securityLevel:'strict'.
-      wrap.innerHTML = svg;
+      // Mermaid hardened this SVG under securityLevel:'strict'. Any style
+      // attribute that reached the string is renamed before the parser sees it.
+      wrap.innerHTML = deferInlineStyles(svg);
+      applyDeferredStyles(wrap);
 
-      // CSP-safe styling: lift the SVG's <style> into a constructed stylesheet
-      // (CSSOM rules are exempt from the inline-style CSP restriction), then
-      // drop the now-redundant inline <style> from the SVG. The diagram id on
-      // the SVG scopes those rules, so styling survives.
+      // CSP-safe styling: the diagram's own CSS goes into a constructed
+      // stylesheet (CSSOM rules are exempt from the inline-style CSP
+      // restriction) rather than an inline <style>. The diagram id on the SVG
+      // scopes those rules, so styling survives. Older render paths that still
+      // emit a <style> element are lifted the same way.
+      diagramCss.forEach(function (text) { mermaidCss.push(text); });
       const styleEl = wrap.querySelector('style');
       if (styleEl) {
         mermaidCss.push(styleEl.textContent || '');
@@ -2379,6 +2533,7 @@
     });
 
     els.source.addEventListener('input', onSourceInput);
+    if (els.copyAll) els.copyAll.addEventListener('click', copyAllSource);
 
     if (els.tocToggle) els.tocToggle.addEventListener('click', toggleToc);
     if (els.toc) els.toc.addEventListener('click', onTocClick);

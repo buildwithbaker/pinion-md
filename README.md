@@ -49,7 +49,7 @@ Inside the find bar: `Enter` next match, `Shift + Enter` previous match, `Esc` c
 | PWA | manifest.json + service worker (cache-first, fully offline after install) |
 | Hosting | GitHub Pages |
 
-All third-party libraries are vendored locally in `vendor/` for offline support and supply-chain stability.
+All third-party libraries are vendored locally in `vendor/` for offline support and supply-chain stability, and so are both typefaces - Inter and JetBrains Mono, latin subset, SIL Open Font License 1.1. Nothing is loaded from a CDN or any other origin at runtime: the page's CSP holds `style-src`, `font-src` and `connect-src` at `'self'`.
 
 ## Browser support
 
@@ -79,16 +79,30 @@ pinion-md/
   manifest.json           # PWA manifest
   icons/                  # app icons (no loose images at root, per BwB Repo Structure Standard v2.0)
     icon.svg              # Lucide Feather on indigo (source SVG)
+    icon-180.png          # apple-touch-icon, downscaled from icon-512.png
     icon-192.png          # Generated from icon.svg
     icon-512.png          # Generated from icon.svg
     icon-maskable-512.png # Maskable variant for Android adaptive icons
+    icon-maskable.svg     # Maskable source SVG
   assets/img/
     og-image.png          # 1200x630 social card (og:image / twitter:image)
-  vendor/
+  vendor/                 # third-party code and fonts, served from this origin
     marked.min.js
     highlight.min.js
     purify.min.js
+    mermaid.min.js        # Mermaid 10.9.3 classic UMD build (~3.2 MB)
     highlight-theme.css   # Syntax theme tuned for indigo-only palette
+    fonts.css             # @font-face rules for the self-hosted typefaces
+    fonts/                # Inter latin woff2 400/500/600/700, JetBrains Mono 400/600/700,
+                          #   plus the OFL licence for each
+  docs/internal/
+    architecture.md       # Deep architecture reference
+  .github/workflows/
+    ci.yml                # Root-hygiene + local link check
+  CNAME                   # pinion.buildwithbaker.io
+  robots.txt              # Allow-all + sitemap reference
+  sitemap.xml             # Single-URL sitemap (site root)
+  CHANGELOG.md
   CLAUDE.md
   LICENSE
   README.md
@@ -101,7 +115,11 @@ pinion-md/
 
 Re-fetch from the source URLs, drop into `vendor/`, then bump `CACHE_NAME` in `sw.js` (e.g. `pinion-md-v1` to `pinion-md-v2`) so installed PWAs flush their old cache.
 
-> **Internals:** see [docs/internal/architecture.md](docs/internal/architecture.md) for the full architecture reference — app.js structure, render/sanitize flow, extension points, vendor updates, and gotchas.
+## Release history
+
+See [CHANGELOG.md](CHANGELOG.md) for what shipped in each version.
+
+> **Internals:** see [docs/internal/architecture.md](docs/internal/architecture.md) for the full architecture reference - app.js structure, render/sanitize flow, extension points, vendor updates, and gotchas.
 
 ## License
 
