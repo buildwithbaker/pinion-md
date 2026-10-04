@@ -20,6 +20,9 @@ Changes that landed on `main` after v1.6 without a version number of their own.
   CVE-2025-54881). Both are taken from the npm registry tarballs, still served
   from `vendor/`. Rendered output for the repo docs, a hostile-HTML fixture and
   five diagram types is unchanged. Cache: `pinion-md-v24`.
+- The service worker precaches with `cache: 'reload'`, so a cache bump shortly
+  after a deploy fetches fresh files instead of reusing a stale copy from the
+  browser's HTTP cache. Same release, `pinion-md-v24`.
 - The site is deployed by GitHub Actions (`.github/workflows/pages.yml`) from an
   explicit allow-list of the app's files, instead of GitHub Pages serving every
   file in the branch. `CLAUDE.md`, `README.md`, this changelog, `LICENSE` and
