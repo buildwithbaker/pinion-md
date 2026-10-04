@@ -13,6 +13,12 @@ release is listed with it.
 
 Changes that landed on `main` after v1.6 without a version number of their own.
 
+- The site is deployed by GitHub Actions (`.github/workflows/pages.yml`) from an
+  explicit allow-list of the app's files, instead of GitHub Pages serving every
+  file in the branch. `CLAUDE.md`, `README.md`, this changelog, `LICENSE` and
+  `docs/` are no longer served. The workflow fails the build if a precached
+  asset, manifest icon or page reference is missing from what it publishes. No
+  app file changed, so no cache bump.
 - Fixes from the 2026-10-03 product review. Cache: `pinion-md-v22` (the bump
   also retires the shell cached before 2026-09-28).
   - Unsaved edits are guarded: while the document is dirty a reload or tab close
