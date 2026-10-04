@@ -13,6 +13,13 @@ release is listed with it.
 
 Changes that landed on `main` after v1.6 without a version number of their own.
 
+- Vendored libraries updated for published advisories: DOMPurify 3.1.6 to
+  3.4.16 (fixes, among others, CVE-2025-26791, CVE-2025-15599, CVE-2026-0540
+  and the mXSS CVE-2026-65914, which affect default `sanitize()` use) and
+  Mermaid 10.9.3 to 10.9.8 (eight advisories, including sequence-label XSS
+  CVE-2025-54881). Both are taken from the npm registry tarballs, still served
+  from `vendor/`. Rendered output for the repo docs, a hostile-HTML fixture and
+  five diagram types is unchanged. Cache: `pinion-md-v24`.
 - The site is deployed by GitHub Actions (`.github/workflows/pages.yml`) from an
   explicit allow-list of the app's files, instead of GitHub Pages serving every
   file in the branch. `CLAUDE.md`, `README.md`, this changelog, `LICENSE` and
