@@ -67,6 +67,7 @@ pinion-md/
 
   .github/workflows/
     ci.yml                required `hygiene` check - root-allowlist + local link check
+    pages.yml             Pages deploy (Actions): publishes an allow-list of app files; repo docs stay unpublished
 
   assets/img/             non-icon images (BwB Repo Structure Standard v2.0 - no loose images at root)
     og-image.png          1200x630 social card (og:image / twitter:image)
@@ -172,7 +173,7 @@ python3 -m http.server 8000     # or: npx serve .
 # open http://localhost:8000/   ( file:// will NOT register the SW or the file picker )
 ```
 
-**Deploy:** static GitHub Pages site on a **custom domain** (`CNAME` → `pinion.buildwithbaker.io`; note `.nojekyll`). Merging a PR to main publishes the repo root as-is at the domain root.
+**Deploy:** static GitHub Pages site on a **custom domain** (`CNAME` → `pinion.buildwithbaker.io`), Pages source **GitHub Actions**. Merging a PR to main runs `.github/workflows/pages.yml`, which copies an explicit allow-list (`index.html`, `manifest.json`, `sw.js`, `robots.txt`, `sitemap.xml`, `CNAME`, `.nojekyll`, `css/`, `js/`, `vendor/`, `icons/`, `assets/`) into the artifact, verifies every `sw.js` ASSETS entry, manifest icon and `index.html` reference is present and that no repo doc is, then deploys it to the domain root. `CLAUDE.md`, `README.md`, `CHANGELOG.md`, `LICENSE` and `docs/` are not served. A newly served file or folder must be added to the allow-list.
 
 ---
 

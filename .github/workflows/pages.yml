@@ -1,0 +1,82 @@
+name: Deploy Pages
+# Publishes an explicit allow-list of the app's own files to GitHub Pages, so
+# repo docs (CLAUDE.md, README.md, CHANGELOG.md, docs/internal/) are not served.
+# Requires the Pages source set to "GitHub Actions" (build_type=workflow).
+# Pull requests run the build and checks only; deploy runs from main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The allow-list. A new served file or folder must be added here.
+      - name: Assemble site
+        run: |
+          mkdir _site
+          cp index.html manifest.json sw.js robots.txt sitemap.xml CNAME .nojekyll _site/
+          cp -r css js vendor icons assets _site/
+
+      # Every precached asset, manifest icon and local page reference must be
+      # in the artifact, and the repo docs must not be.
+      - name: Verify site
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const site = '_site';
+          let bad = 0;
+          const need = (ref, from) => {
+            ref = ref.replace(/^\.\//, '').split('#')[0].split('?')[0];
+            if (!ref || /^(https?:|\/\/|mailto:|data:|#)/i.test(ref)) return;
+            if (ref.startsWith('/')) ref = ref.slice(1);
+            if (ref === '') ref = 'index.html';
+            if (!fs.existsSync(path.join(site, ref))) {
+              console.log(`::error::${from} references ${ref}, missing from the site`);
+              bad++;
+            }
+          };
+          const sw = fs.readFileSync('sw.js', 'utf8');
+          const assets = sw.match(/const ASSETS = \[([\s\S]*?)\]/)[1];
+          for (const m of assets.matchAll(/'([^']+)'/g)) need(m[1], 'sw.js ASSETS');
+          const html = fs.readFileSync('index.html', 'utf8');
+          for (const m of html.matchAll(/(?:href|src)\s*=\s*["']([^"']+)["']/gi)) need(m[1], 'index.html');
+          const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+          const icons = [].concat(manifest.icons || [],
+            ...(manifest.file_handlers || []).map((h) => h.icons || []));
+          for (const i of icons) need(i.src, 'manifest.json');
+          for (const f of ['CLAUDE.md', 'README.md', 'CHANGELOG.md', 'LICENSE', 'docs', '.github']) {
+            if (fs.existsSync(path.join(site, f))) {
+              console.log(`::error::${f} must not be published`);
+              bad++;
+            }
+          }
+          process.exit(bad ? 1 : 0);
+          EOF
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

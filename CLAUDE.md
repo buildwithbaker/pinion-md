@@ -17,7 +17,14 @@ would mean widening that CSP; vendor it instead.
 
 ## Deploy
 - Static GitHub Pages site on a custom domain (`CNAME` -> pinion.buildwithbaker.io;
-  note the `.nojekyll` file). Merging a PR into main publishes the repo root as-is.
+  Pages source = GitHub Actions). Merging a PR into main runs
+  `.github/workflows/pages.yml`, which publishes an explicit allow-list only:
+  index.html, manifest.json, sw.js, robots.txt, sitemap.xml, CNAME, .nojekyll,
+  css/, js/, vendor/, icons/, assets/. Repo docs (CLAUDE.md, README.md,
+  CHANGELOG.md, LICENSE, docs/) are NOT served. A new file or folder the app
+  serves must be added to that allow-list, or it 404s live; the workflow's
+  verify step fails the build if a sw.js ASSETS entry, manifest icon or
+  index.html reference is missing from the artifact.
 
 ## Branching (main is protected - PR only)
 
@@ -46,7 +53,8 @@ is the standard.
 Do not add files to the repo root unless required (index.html, manifest.json,
 sw.js, .nojekyll, icons, README, CHANGELOG, LICENSE, CLAUDE.md, dotfiles). The
 permitted-root list is enforced by the `hygiene` CI job, so a genuinely new root
-file must also be added to the allowlist in `.github/workflows/ci.yml`. Before
+file must also be added to the allowlist in `.github/workflows/ci.yml` (and, if
+the app serves it, to the publish list in `.github/workflows/pages.yml`). Before
 adding a file: identify its folder, create it if missing, add it there.
 - New CSS -> css/; new JS -> js/; new icon -> icons/; new image -> assets/img/;
   vendored third-party lib -> vendor/; planning/spec doc -> docs/internal/.

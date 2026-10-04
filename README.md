@@ -47,7 +47,7 @@ Inside the find bar: `Enter` next match, `Shift + Enter` previous match, `Esc` c
 | Diagrams | [Mermaid](https://mermaid.js.org/) 10.9.3 |
 | File access | File System Access API (Chromium browsers) |
 | PWA | manifest.json + service worker (cache-first, fully offline after install) |
-| Hosting | GitHub Pages |
+| Hosting | GitHub Pages, deployed by GitHub Actions from an allow-list of app files |
 
 All third-party libraries are vendored locally in `vendor/` for offline support and supply-chain stability, and so are both typefaces - Inter and JetBrains Mono, latin subset, SIL Open Font License 1.1. Nothing is loaded from a CDN or any other origin at runtime: the page's CSP holds `style-src`, `font-src` and `connect-src` at `'self'`.
 
@@ -99,6 +99,7 @@ pinion-md/
     architecture.md       # Deep architecture reference
   .github/workflows/
     ci.yml                # Root-hygiene + local link check
+    pages.yml             # Pages deploy: publishes the app files only (not the repo docs)
   CNAME                   # pinion.buildwithbaker.io
   robots.txt              # Allow-all + sitemap reference
   sitemap.xml             # Single-URL sitemap (site root)
