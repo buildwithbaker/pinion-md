@@ -1292,6 +1292,12 @@ mark.search-hit.active {
 @media (max-width: 420px) {
   .brand .wordmark { display: none; }
   .filename-badge { max-width: 96px; }
+  /* Pane headers: Copy all keeps its icon and aria-label, which frees the room
+   * the size and type labels need at 320px; anything left over wraps instead
+   * of clipping (WCAG 1.4.10). */
+  .pane-header { padding-left: 16px; padding-right: 12px; gap: 8px; }
+  .pane-header .ph-copy-label { display: none; }
+  .pane-header .ph-right { gap: 6px; flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; min-width: 0; }
 }
 
 /* v1.1: on narrow widths the TOC becomes an overlay drawer instead of a rail.

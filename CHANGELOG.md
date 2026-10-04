@@ -13,6 +13,22 @@ release is listed with it.
 
 Changes that landed on `main` after v1.6 without a version number of their own.
 
+- Fixes from the 2026-10-03 product review. Cache: `pinion-md-v22` (the bump
+  also retires the shell cached before 2026-09-28).
+  - Unsaved edits are guarded: while the document is dirty a reload or tab close
+    asks first (`beforeunload`), and the header's **Open file** asks before
+    replacing it, as dropping a file already did.
+  - Mermaid (~3 MB) is no longer a page script. It loads the first time a
+    rendered document contains a diagram, so the landing page and plain
+    documents never parse it; the service worker still precaches it for
+    offline use. The other vendor scripts are `defer`.
+  - Exporting from dark mode re-renders each diagram with the light theme, so
+    the exported light document no longer carries a dark diagram.
+  - The view you choose (Preview / Edit / Split) is remembered on this device.
+    With no choice yet, a phone (760px and below) opens files in Preview.
+  - Jumping to the last heading from the contents now highlights it, and the
+    phone contents drawer shows the current section when it reopens.
+  - At 320px the source pane header no longer clips its size and type labels.
 - Mermaid diagrams render at their correct size again. The app's strict CSP has
   no `'unsafe-inline'` for `style-src`, so every inline style Mermaid wrote into
   its SVG was refused - including the `max-width` that holds a diagram at its
