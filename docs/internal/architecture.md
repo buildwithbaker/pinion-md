@@ -38,9 +38,9 @@ What it does:
 |---|---|---|
 | Architecture | Plain HTML / CSS / JS, **no framework, no build step** | - |
 | Markdown parser | [marked](https://github.com/markedjs/marked) | 9.1.6 |
-| Sanitizer | [DOMPurify](https://github.com/cure53/DOMPurify) | 3.1.6 |
+| Sanitizer | [DOMPurify](https://github.com/cure53/DOMPurify) | 3.4.16 |
 | Syntax highlighting | [highlight.js](https://highlightjs.org/) | 11.10.0 |
-| Diagrams | [Mermaid](https://mermaid.js.org/) (classic UMD build) | 10.9.3 |
+| Diagrams | [Mermaid](https://mermaid.js.org/) (classic UMD build) | 10.9.8 |
 | File access | File System Access API (Chromium) | - |
 | PWA | `manifest.json` + `sw.js` (cache-first) | - |
 | Hosting | GitHub Pages + custom domain (`CNAME` → pinion.buildwithbaker.io) | - |
@@ -56,7 +56,7 @@ pinion-md/
   index.html              App shell: header, segmented view control, split panes, footer
   css/style.css           All styles; reader-surface tokens at :root, BwB tokens inherited
   js/app.js               ★ The whole app - FSAA, marked init, state, view toggle, shortcuts
-  sw.js                   service worker - CACHE_NAME 'pinion-md-v22', ASSETS precache list
+  sw.js                   service worker - CACHE_NAME 'pinion-md-v24', ASSETS precache list
   manifest.json           PWA manifest (start_url/scope https://pinion.buildwithbaker.io/, theme #2B4A8B)
   .nojekyll               disables Jekyll on GitHub Pages
   robots.txt              allow-all + sitemap reference
@@ -84,7 +84,7 @@ pinion-md/
     marked.min.js
     highlight.min.js
     purify.min.js
-    mermaid.min.js        Mermaid 10.9.3 classic UMD build (~3.2 MB) - diagrams
+    mermaid.min.js        Mermaid 10.9.8 classic UMD build (~3.2 MB) - diagrams
     highlight-theme.css   syntax theme tuned for the indigo-only palette
     fonts.css             @font-face rules for both self-hosted typefaces
     fonts/                inter-latin-{400,500,600,700}-normal.woff2,
@@ -102,9 +102,9 @@ pinion-md/
 | Lib | Version | Source URL |
 |---|---|---|
 | marked | 9.1.6 | `https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js` |
-| DOMPurify | 3.1.6 | `https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js` |
+| DOMPurify | 3.4.16 | `https://cdn.jsdelivr.net/npm/dompurify@3.4.16/dist/purify.min.js` |
 | highlight.js | 11.10.0 | `https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.10.0/highlight.min.js` |
-| Mermaid | 10.9.3 | `https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js` (classic UMD; sets `window.mermaid`) |
+| Mermaid | 10.9.8 | `https://cdn.jsdelivr.net/npm/mermaid@10.9.8/dist/mermaid.min.js` (classic UMD; sets `window.mermaid`) |
 
 ---
 

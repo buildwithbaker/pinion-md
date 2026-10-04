@@ -6,7 +6,7 @@
  * Bump CACHE_NAME (v1 -> v2 etc.) any time ASSETS change so old caches drop.
  */
 
-const CACHE_NAME = 'pinion-md-v23';
+const CACHE_NAME = 'pinion-md-v24';
 
 const ASSETS = [
   './',
@@ -34,11 +34,12 @@ const ASSETS = [
   './vendor/fonts/jetbrains-mono-latin-700-normal.woff2',
 ];
 
-// Install: cache all local assets
+// Install: cache all local assets. cache: 'reload' goes past the browser's HTTP
+// cache, so a bump shortly after a deploy cannot precache a stale copy.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS))
+      .then((cache) => cache.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });

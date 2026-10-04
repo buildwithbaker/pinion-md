@@ -42,9 +42,9 @@ Inside the find bar: `Enter` next match, `Shift + Enter` previous match, `Esc` c
 |---|---|
 | Architecture | Plain HTML / CSS / JS, no framework, no build step |
 | Markdown parser | [marked](https://github.com/markedjs/marked) 9.1.6 |
-| Sanitizer | [DOMPurify](https://github.com/cure53/DOMPurify) 3.1.6 |
+| Sanitizer | [DOMPurify](https://github.com/cure53/DOMPurify) 3.4.16 |
 | Syntax highlighting | [highlight.js](https://highlightjs.org/) 11.10.0 |
-| Diagrams | [Mermaid](https://mermaid.js.org/) 10.9.3 |
+| Diagrams | [Mermaid](https://mermaid.js.org/) 10.9.8 |
 | File access | File System Access API (Chromium browsers) |
 | PWA | manifest.json + service worker (cache-first, fully offline after install) |
 | Hosting | GitHub Pages, deployed by GitHub Actions from an allow-list of app files |
@@ -90,7 +90,7 @@ pinion-md/
     marked.min.js
     highlight.min.js
     purify.min.js
-    mermaid.min.js        # Mermaid 10.9.3 classic UMD build (~3.2 MB)
+    mermaid.min.js        # Mermaid 10.9.8 classic UMD build (~3.2 MB)
     highlight-theme.css   # Syntax theme tuned for indigo-only palette
     fonts.css             # @font-face rules for the self-hosted typefaces
     fonts/                # Inter latin woff2 400/500/600/700, JetBrains Mono 400/600/700,
