@@ -114,6 +114,7 @@
   let mermaidSeq = 0;         // monotonic id source for mermaid.render()
   let renderToken = 0;        // bumped per render; invalidates stale async passes
   let mermaidTimer = null;    // debounce handle for the async pass
+  const diagramSource = new WeakMap();  // rendered .mermaid-diagram -> its source
 
   // Split-view sync-scroll re-entrancy guard (Feature 3, v1.2).
   let isSyncing = false;
@@ -550,8 +551,8 @@
   // Mermaid's theme is JS-set (CSS tokens can't reach it), so dark mode needs an
   // explicit variable swap + re-init + re-render (see applyTheme). Light keeps
   // the original v1.2 palette; dark uses the dark ramp + lifted indigo #7FA0E8.
-  function mermaidThemeVars() {
-    if (isDark()) {
+  function mermaidThemeVars(dark) {
+    if (dark) {
       return {
         primaryColor: '#171C26',        // ~ dark --reader-card
         primaryBorderColor: '#7FA0E8',  // lifted indigo accent
@@ -682,19 +683,54 @@
     }
   }
 
+  function mermaidConfig(dark) {
+    return {
+      startOnLoad: false,
+      // 'strict' makes Mermaid sanitize its own SVG and disable click-script
+      // handlers — this is why the SVG may bypass the main DOMPurify pass.
+      securityLevel: 'strict',
+      theme: 'base',
+      htmlLabels: false,                                  // avoid foreignObject
+      flowchart: { htmlLabels: false, useMaxWidth: true },
+      themeVariables: mermaidThemeVars(dark),
+    };
+  }
+
+  // Mermaid is ~3 MB, so it is not a page script: it loads the first time a
+  // rendered document contains a mermaid block (the service worker precaches
+  // it, so this still works offline). Resolves true once window.mermaid exists.
+  let mermaidLoading = null;
+  function loadMermaid() {
+    if (window.mermaid) return Promise.resolve(true);
+    if (!mermaidLoading) {
+      mermaidLoading = new Promise(function (resolve) {
+        const script = document.createElement('script');
+        script.src = 'vendor/mermaid.min.js';
+        script.onload = function () { resolve(!!window.mermaid); };
+        script.onerror = function () {
+          mermaidLoading = null;  // allow a later retry
+          script.remove();
+          resolve(false);
+        };
+        document.head.appendChild(script);
+      });
+    }
+    return mermaidLoading;
+  }
+
+  // One diagram pass at a time: the export's light re-render re-initializes
+  // Mermaid's global theme, so a live pass must never interleave with it.
+  let mermaidQueue = Promise.resolve();
+  function mermaidExclusive(fn) {
+    const run = mermaidQueue.then(fn, fn);
+    mermaidQueue = run.catch(function () { /* keep the queue alive */ });
+    return run;
+  }
+
   function initMermaid() {
     if (mermaidReady || !window.mermaid) return;
     try {
-      window.mermaid.initialize({
-        startOnLoad: false,
-        // 'strict' makes Mermaid sanitize its own SVG and disable click-script
-        // handlers — this is why the SVG may bypass the main DOMPurify pass.
-        securityLevel: 'strict',
-        theme: 'base',
-        htmlLabels: false,                                  // avoid foreignObject
-        flowchart: { htmlLabels: false, useMaxWidth: true },
-        themeVariables: mermaidThemeVars(),
-      });
+      window.mermaid.initialize(mermaidConfig(isDark()));
       mermaidReady = true;
     } catch (e) {
       // On init failure diagrams simply remain as code blocks.
@@ -714,15 +750,24 @@
   function scheduleMermaid() {
     renderToken += 1;
     const token = renderToken;
-    if (!window.mermaid) return;
     if (!els.preview.querySelector('pre[data-lang="mermaid"]')) return;
+    if (!window.mermaid) {
+      loadMermaid().then(function (ok) {
+        if (ok && token === renderToken) scheduleMermaid();
+      });
+      return;
+    }
     if (mermaidTimer) clearTimeout(mermaidTimer);
     mermaidTimer = setTimeout(function () {
       renderMermaid(token).catch(function () { /* never reject into the void */ });
     }, 160);
   }
 
-  async function renderMermaid(token) {
+  function renderMermaid(token) {
+    return mermaidExclusive(function () { return renderMermaidPass(token); });
+  }
+
+  async function renderMermaidPass(token) {
     if (!window.mermaid) return;
     initMermaid();
     if (!mermaidReady) return;
@@ -759,6 +804,7 @@
       // attribute that reached the string is renamed before the parser sees it.
       wrap.innerHTML = deferInlineStyles(svg);
       applyDeferredStyles(wrap);
+      diagramSource.set(wrap, src);  // export re-renders light from this
 
       // CSP-safe styling: the diagram's own CSS goes into a constructed
       // stylesheet (CSSOM rules are exempt from the inline-style CSP
@@ -995,6 +1041,9 @@
       els.tocToggle.classList.toggle('active', want);
       els.tocToggle.setAttribute('aria-pressed', want ? 'true' : 'false');
     }
+    // The drawer closes on a jump at narrow widths, so scrollspy skipped the
+    // scroll; bring the highlight up to date whenever the panel opens.
+    if (want) updateScrollspy();
   }
 
   function toggleToc() {
@@ -1007,9 +1056,12 @@
     e.preventDefault();
     const id = a.getAttribute('data-target');
     const target = id && els.preview.querySelector('#' + cssEscape(id));
+    tocJumpId = target ? id : null;
     if (target) scrollPreviewTo(target);
     if (window.matchMedia('(max-width: 720px)').matches) setTocOpen(false);
   }
+
+  let tocJumpId = null;  // last Contents entry clicked; scrollspy uses it at the end
 
   function cssEscape(s) {
     if (window.CSS && CSS.escape) return CSS.escape(s);
@@ -1030,11 +1082,30 @@
     if (!state.tocOpen || !previewScroll) return;
     const heads = els.preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
     if (!heads.length) return;
-    const cTop = previewScroll.getBoundingClientRect().top;
+    const cRect = previewScroll.getBoundingClientRect();
     let activeId = heads[0].id;
     for (let i = 0; i < heads.length; i++) {
-      if (heads[i].getBoundingClientRect().top - cTop <= 24) activeId = heads[i].id;
+      if (heads[i].getBoundingClientRect().top - cRect.top <= 24) activeId = heads[i].id;
       else break;
+    }
+    // At the end of the document the last sections can never reach the trigger
+    // line, so mark the entry the reader jumped to (if it is on screen), else
+    // the last heading on screen.
+    const atEnd = previewScroll.scrollTop + previewScroll.clientHeight >=
+      previewScroll.scrollHeight - 2;
+    if (atEnd && previewScroll.scrollTop > 0) {
+      const onScreen = function (h) {
+        const top = h.getBoundingClientRect().top;
+        return top >= cRect.top && top < cRect.bottom;
+      };
+      const jumped = tocJumpId && els.preview.querySelector('#' + cssEscape(tocJumpId));
+      if (jumped && onScreen(jumped)) {
+        activeId = tocJumpId;
+      } else {
+        for (let i = heads.length - 1; i >= 0; i--) {
+          if (onScreen(heads[i])) { activeId = heads[i].id; break; }
+        }
+      }
     }
     const links = els.toc.querySelectorAll('.toc-link');
     links.forEach(function (l) {
@@ -1555,7 +1626,7 @@
     return state.view !== 'landing' && !!(state.content && state.content.length);
   }
 
-  function exportHtml() {
+  async function exportHtml() {
     if (!canExport()) {
       toast('Open a file before exporting.', 'warning');
       return;
@@ -1575,7 +1646,13 @@
     // Mermaid diagram styles live in a constructed stylesheet (CSSOM), so they
     // are NOT inline in the clone — inline the collected CSS into the export so
     // diagrams render correctly in the standalone file.
-    const mermaidStyle = mermaidCss.length ? '\n' + mermaidCss.join('\n') : '';
+    let diagramCss = mermaidCss;
+    // The export is always light, but a diagram's colors are baked in when it
+    // renders, so diagrams drawn in dark mode are re-rendered light for the file.
+    if (isDark() && clone.querySelector('.mermaid-diagram')) {
+      diagramCss = await renderDiagramsLight(clone);
+    }
+    const mermaidStyle = diagramCss.length ? '\n' + diagramCss.join('\n') : '';
 
     const title = baseName(state.fileName || 'document');
     const docHtml =
@@ -1600,6 +1677,51 @@
     toast('Exported ' + title + '.html', 'success');
   }
 
+  // Replace each diagram in the export clone with a light-theme render of the
+  // same source, and return the CSS the file needs. A diagram that cannot be
+  // re-rendered keeps its on-screen version, so its CSS is carried as well.
+  function renderDiagramsLight(clone) {
+    return mermaidExclusive(async function () {
+      const live = els.preview.querySelectorAll('.mermaid-diagram');
+      const copies = clone.querySelectorAll('.mermaid-diagram');
+      if (!window.mermaid || live.length !== copies.length) return mermaidCss;
+      const css = [];
+      let keptDark = false;
+      try {
+        window.mermaid.initialize(mermaidConfig(false));
+        for (let i = 0; i < copies.length; i++) {
+          const src = diagramSource.get(live[i]);
+          if (!src) { keptDark = true; continue; }
+          const id = 'mmd-' + (++mermaidSeq);
+          let out;
+          try {
+            out = await renderWithDeferredStyles(function () {
+              return window.mermaid.render(id, src);
+            });
+          } catch (e) {
+            keptDark = true;
+            continue;
+          }
+          copies[i].innerHTML = deferInlineStyles(out.svg);
+          applyDeferredStyles(copies[i]);
+          out.css.forEach(function (text) { css.push(text); });
+          const styleEl = copies[i].querySelector('style');
+          if (styleEl) {
+            css.push(styleEl.textContent || '');
+            styleEl.remove();
+          }
+        }
+      } catch (e) {
+        keptDark = true;
+      } finally {
+        // Back to the app's own appearance for the next on-screen render.
+        mermaidReady = false;
+        initMermaid();
+      }
+      return keptDark ? css.concat(mermaidCss) : css;
+    });
+  }
+
   function baseName(name) {
     return String(name).replace(/\.(md|markdown|mdown|mkd|txt)$/i, '') || 'document';
   }
@@ -1617,8 +1739,8 @@
   // a later slide would clone as a bare code block. Mermaid CSS lives in the
   // document-wide adopted stylesheet, so the cloned SVGs are styled in the deck.
   async function ensureMermaidRendered() {
-    if (!window.mermaid) return;
     if (!els.preview.querySelector('pre[data-lang="mermaid"]')) return;
+    if (!(await loadMermaid())) return;
     renderToken += 1;
     try { await renderMermaid(renderToken); } catch (e) { /* leave as code block */ }
   }
@@ -1753,6 +1875,27 @@
   // View mode
   // ---------------------------------------------------------------------
 
+  // The last view the visitor chose is remembered per device, like the theme.
+  // With no choice yet, a phone opens in Preview (reading is the primary task
+  // and Split leaves the preview a third of the screen); wider screens, Split.
+  const VIEW_KEY = 'pinion-view';
+  function isFileView(v) { return v === 'preview' || v === 'edit' || v === 'split'; }
+
+  function initialView() {
+    try {
+      const v = localStorage.getItem(VIEW_KEY);
+      if (isFileView(v)) return v;
+    } catch (e) { /* storage blocked — use the default */ }
+    return window.matchMedia('(max-width: 760px)').matches ? 'preview' : 'split';
+  }
+
+  // A view picked by the visitor (segmented control or Ctrl+E).
+  function chooseView(view) {
+    setView(view);
+    if (!isFileView(view)) return;
+    try { localStorage.setItem(VIEW_KEY, view); } catch (e) { /* ignore */ }
+  }
+
   function setView(view) {
     state.view = view;
     els.body.setAttribute('data-view', view);
@@ -1807,7 +1950,20 @@
   // File operations
   // ---------------------------------------------------------------------
 
+  // Every path that replaces the open document asks first while it is dirty;
+  // the drop, Recent and reload paths carry their own wording. A yes holds for
+  // the same unsaved text, so a picker that refuses to open after a slow answer
+  // (its click activation expires) does not ask again on the second click.
+  let discardOkFor = null;
+  function confirmDiscard() {
+    if (!state.isDirty || discardOkFor === state.content) return true;
+    const ok = confirm('You have unsaved changes. Open another file and lose them?');
+    if (ok) discardOkFor = state.content;
+    return ok;
+  }
+
   async function openFile() {
+    if (!confirmDiscard()) return;
     if (!hasFSAccess) {
       openFileFallback();
       return;
@@ -1828,6 +1984,10 @@
       await loadFromHandle();
     } catch (err) {
       if (err && err.name === 'AbortError') return; // user cancelled
+      if (err && (err.name === 'SecurityError' || err.name === 'NotAllowedError')) {
+        toast('Click Open file again to choose a file.', 'info');
+        return;
+      }
       toast('Could not open file: ' + (err.message || err), 'danger');
     }
   }
@@ -1869,17 +2029,36 @@
     }
   }
 
+  // Unsaved edits: while the buffer is dirty, a reload or tab close asks first.
+  // The handler is attached only while dirty so a clean page never prompts.
+  function onBeforeUnload(e) {
+    e.preventDefault();
+    e.returnValue = '';  // older Chromium needs returnValue set to show the prompt
+  }
+  let unloadGuarded = false;
+  function syncUnloadGuard() {
+    if (state.isDirty && !unloadGuarded) {
+      window.addEventListener('beforeunload', onBeforeUnload);
+      unloadGuarded = true;
+    } else if (!state.isDirty && unloadGuarded) {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      unloadGuarded = false;
+    }
+  }
+
   function onContentLoaded(text) {
     state.content = text;
     state.lastSavedContent = text;
     state.isDirty = false;
+    discardOkFor = null;
+    syncUnloadGuard();
     els.source.value = text;
     els.fileName.textContent = state.fileName || 'untitled.md';
     els.fileBadge.classList.remove('dirty');
     hideChangedBar();
     renderPreview();
     setStatus('Loaded', 'just now');
-    if (state.view === 'landing') setView('split');
+    if (state.view === 'landing') setView(initialView());
     // Restore the per-file scroll position after layout settles (v1.4).
     setTimeout(restoreScroll, 60);
   }
@@ -1899,6 +2078,7 @@
       await writable.close();
       state.lastSavedContent = state.content;
       state.isDirty = false;
+      syncUnloadGuard();
       els.fileBadge.classList.remove('dirty');
       // Refresh size + mtime after save so our own write is not mistaken for
       // an external change by the auto-reload poller.
@@ -2216,6 +2396,7 @@
   function onSourceInput() {
     state.content = els.source.value;
     state.isDirty = (state.content !== state.lastSavedContent);
+    syncUnloadGuard();
     els.fileBadge.classList.toggle('dirty', state.isDirty);
     if (state.isDirty) setStatus('Unsaved', 'edited');
 
@@ -2279,8 +2460,8 @@
     } else if (key === 'e') {
       e.preventDefault();
       if (state.view === 'landing') return;
-      if (state.view === 'preview') setView('edit');
-      else setView('preview'); // 'edit' or 'split' -> preview
+      if (state.view === 'preview') chooseView('edit');
+      else chooseView('preview'); // 'edit' or 'split' -> preview
     }
   }
 
@@ -2529,7 +2710,7 @@
       const btn = e.target.closest('button[data-view]');
       if (!btn) return;
       const v = btn.getAttribute('data-view');
-      if (v) setView(v);
+      if (v) chooseView(v);
     });
 
     els.source.addEventListener('input', onSourceInput);
@@ -2654,6 +2835,7 @@
     if ('launchQueue' in window && 'LaunchParams' in window && 'files' in LaunchParams.prototype) {
       window.launchQueue.setConsumer(async (launchParams) => {
         if (!launchParams || !launchParams.files || !launchParams.files.length) return;
+        if (!confirmDiscard()) return;
         try {
           state.fileHandle = launchParams.files[0];   // FileSystemFileHandle — writable, so Save works
           await loadFromHandle();
